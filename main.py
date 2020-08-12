@@ -134,9 +134,10 @@ def user_entering_email(message):
         if message.entities[0].type == 'email' and user.update_email(message):
             bot.send_message(message.chat.id, text=config.States.S_FINISH_MESSAGE.value, parse_mode='Markdown')
             dbworker.set_state(message.chat.id, config.States.S_START.value)
-            print('ok')
-            text = "На данный момент доступны следующие университеты:"
-            show_data_from(message.chat.id, text, 'universities', None, None)
+
+            text = "На данный момент к системе подключены следующие университеты"
+            markup = get_markup_from('universities', None, None)
+            bot.send_message(message.chat.id, text=text, reply_markup=markup)
     except Exception as e:
         print(e)
         bot.send_message(message.chat.id, text=config.States.S_ERROR_MESSAGE.value)
@@ -145,43 +146,60 @@ def user_entering_email(message):
 
 # ------- universities & departments & directions  --------
 
-def show_data_from(chat_id, text, table, val_where, val):
+def get_markup_from(table, val_where, val):
     markup = InlineKeyboardMarkup()
-    markup.row_width = 1
+    markup.row_width = 3
     objects = user.get_data_from(table, val_where, val)
     for obj in objects:
         callback = str(obj[0]) + "_" + table
         markup.add(InlineKeyboardButton(obj[1], callback_data=callback))
 
-    bot.send_message(chat_id, text=text, reply_markup=markup)
+    return markup
 
 
 # ------- add direction --------
 @bot.message_handler(commands=['addUniversity'])
 def add_university(message):
-    text = "На данный момент доступны следующие университеты:"
-    show_data_from(message.chat.id, text, 'universities', None, None)
+    text = "На данный момент к системе подключены следующие университеты"
+    markup = get_markup_from('universities', None, None)
+    bot.send_message(message.chat.id, text=text, reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda call: re.match(r'\d{,}[1-9]_universities', call.data) is not None)
 def show_departments(call):
-    text = "На данный момент для этого университета доступны следующие факультеты:"
+    text = "Для этого университета на данный момент доступны следующие факультеты:"
     un_id = int(re.match(r'\d{,}[1-9]', call.data).group())
-    show_data_from(call.message.chat.id, text, 'departments', 'un_id', un_id)
+    markup = get_markup_from('departments', 'un_id', un_id)
+    bot.send_message(call.message.chat.id, text=text, reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda call: re.match(r'\d{,}[1-9]_departments', call.data) is not None)
 def show_directions(call):
-    text = "На данный момент для этого факультета доступны следующие направления:"
+    text = "Для этого факультета доступны следующие направления:"
     dp_id = int(re.match(r'\d{,}[1-9]', call.data).group())
-    show_data_from(call.message.chat.id, text, 'directions', 'dp_id', dp_id)
+    markup = get_markup_from('directions', 'dp_id', dp_id)
+    bot.send_message(call.message.chat.id, text=text, reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda call: re.match(r'\d{,}[1-9]_directions', call.data) is not None)
 def show_directions(call):
-    dr_id = re.match(r'\d{,}[1-9]', call.data).group()
-    text = "Вы выбрали университет " + dr_id
-    bot.send_message(call.message.chat.id, text=text)
+    dr_id = int(re.match(r'\d{,}[1-9]', call.data).group())
+    ans = user.update_directions(call.message.chat.id, dr_id)
+    if ans == 2:
+        text = 'Вы уже добавили себе это направление\n' \
+                'Если вы хотите посмотреть свою позицию в списке в этом направлении, введите:\n' \
+                '*<command>*\n' \
+                'Если вы хотите добавить еще направление, просто выбирите его из списка выше)'
+    elif ans == 1:
+        text = 'Отлично! Направление добавлено!\n' \
+               'Теперь, чтобы посмотреть свою возицию в списке в этом направлении, введите:\n' \
+               '*<command>*\n' \
+               'Если вы хотите добавить еще направление, просто выбирите его из списка выше)'
+    else:
+        text = 'Что-то пошло не так....\n' \
+               'Попробуйте повторно выбрать направдение'
+
+    bot.send_message(call.message.chat.id, text=text, parse_mode='Markdown')
 
 
 bot.infinity_polling()
