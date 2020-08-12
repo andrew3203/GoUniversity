@@ -8,6 +8,7 @@ from classes.direction import Direction
 DNS = "dbname=Application user=kuand"
 
 
+# ------- user functions --------
 def update_names(message, val='first_name', table='users', lenn=40):
     text = message.text.strip()
     if len(text) < lenn and text.isalpha():
@@ -65,7 +66,7 @@ def update_email(message):
         return False
 
 
-def get_data(chat_id):
+def get_user_data(chat_id):
     data = {}
     try:
         with psycopg2.connect(DNS) as conn:
@@ -117,137 +118,20 @@ def is_new(chat_id):
         return False
 
 
+# ------- for universities & departments & directions  --------
+def get_data_from(table, val_where, val):
+    try:
+        with psycopg2.connect(DNS) as conn:
+            with conn.cursor() as cur:
+                if table == 'universities':
+                    cur.execute("SELECT * FROM universities")
+                else:
+                    qur = sql.SQL("SELECT * FROM  {} WHERE {} = %(int)s").format(sql.Identifier(table),
+                                                                            sql.Identifier(val_where))
+                    cur.execute(qur, {'int': val})
+                return cur.fetchall()
 
-class User:
-
-    def __init__(self):
-        self.id = None
-        self.first_name = None
-        self.last_name = None
-        self.middle_name = None
-
-        self.chat_id = None
-
-        self.payed = None
-        self.user_type = None
-        self.subscription = None
-
-        self.is_waiting_for_updates = None
-
-        self.directions = []
-
-    def validate(self, chat_id):
-        # returns 0 - need to be registered
-        # returns 1 - has been registered, did not pay yat
-        # returns 2 - has been registered, request limited
-        # returns 3 - has been registered, payed
-        # returns 4 - data error
-        # returns 5 - connection error
-        try:
-            with psycopg2.connect(DNS) as conn:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                    SELECT id, first_name, last_name, middle_name, payed, subscription, directions
-                    FROM public.users WHERE chat_id = %s
-                    """, chat_id)
-                    info = cur.fetchall()
-                    if len(info) == 0:
-                        # there is new user, need to be registered
-                        self.chat_id = chat_id
-                        return 0
-
-                    elif len(info) == 1:
-                        # there is old user, need to check:
-                        # his updates
-                        self.chat_id = chat_id
-                        self.id = info[0][0]
-                        self.first_name = info[0][1]
-                        self.last_name = info[0][2]
-                        self.middle_name = info[0][3]
-
-                        self.payed = info[0][4]
-                        self.subscription = info[0][6]
-
-                        self.get_directions_list(info[0][7])
-
-                        return 1
-                    else:
-                        # send message to user
-                        print('\n ------- data error \n -------\n')
-                        return 2
-
-        except Exception as e:
-            # send message to user
-            print(e)
-
-        return 3
-
-    def insert_values(self):
-        try:
-            with psycopg2.connect(DNS) as conn:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                    INSERT INTO users (id, uname, lastname, middlename, birthday, dateregister, email, chat_id, is_active, 
-                    user_type,has_subscription, requests_per_day, payment, ege_score, is_waiting_for_updates, came_from_code, 
-                    send_to_code, does_code_expire) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-                    %s, %s, %s, %s, %s);
-                    """, (self.id, self.name, self.last_name, self.middle_name, self.birthday, self.date_register,
-                          self.email, self.chat_id, self.is_active, self.user_type, self.has_subscription,
-                          self.requests_per_day, self.payment, self.scores_ege, self.is_waiting_for_updates,
-                          self.came_from_code, self.send_to_code, self.does_code_expire))
-        except Exception as e:
-            # send message to user
-            print(e)
-
-    def update_values(self):
-        try:
-            with psycopg2.connect(DNS) as conn:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                    UPDATE public.users SET uname=%s, lastname=%s, middlename=%s, birthday=%s, dateregister=%s, 
-                    email=%s, chat_id=%s, is_active=%s, user_type=%s, has_subscription=%s, requests_per_day=%s, 
-                    payment=%s, ege_score=%s, is_waiting_for_updates=%s, came_from_code=%s, send_to_code=%s, 
-                    does_code_expire=%s WHERE id = %s;
-                    """, (self.name, self.last_name, self.middle_name, self.birthday, self.date_register,
-                          self.email, self.chat_id, self.is_active, self.user_type, self.has_subscription,
-                          self.requests_per_day, self.payment, self.scores_ege, self.is_waiting_for_updates,
-                          self.came_from_code, self.send_to_code, self.does_code_expire, self.id))
-        except Exception as e:
-            # send message to user
-            print(e)
-
-    def get_directions_list(self, id_list):
-        self.directions = []
-        try:
-            with psycopg2.connect(DNS) as conn:
-                with conn.cursor() as cur:
-                    cur.execute("SELECT * FROM directions WHARE id in %s", id_list)
-                    for direction in cur.fetchall():
-                        self.directions.append(Direction(direction))
-
-        except Exception as e:
-            # send message to user
-            print(e)
-
-    def check_email(self, message):
-
-        pass
-
-    def generate_friend_link(self):
-        pass
-
-    def delete(self, user_id):  # why exception??
-        if self.chat_id == 379082921:
-            try:
-                with psycopg2.connect(DNS) as conn:
-                    with conn.cursor() as cur:
-                        cur.execute("DELETE FROM public.users WHERE id = %s;", str(user_id))
-                        return True
-
-            except Exception as e:
-                # send message to user
-                print(e)
-        return False
-
-
+    except Exception as e:
+        print(e)
+        return []
 

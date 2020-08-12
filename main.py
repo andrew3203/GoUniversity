@@ -2,6 +2,7 @@ import telebot
 from telebot import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+import re
 from classes import user
 import config
 import dbworker
@@ -14,7 +15,7 @@ bot = telebot.TeleBot(config.TOKEN)
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     if not user.is_new(message.chat.id):
-        name = user.get_data(message.chat.id)['last_name']
+        name = user.get_user_data(message.chat.id)['last_name']
     elif not message.from_user.first_name == '':
         name = message.from_user.first_name
     else:
@@ -133,11 +134,54 @@ def user_entering_email(message):
         if message.entities[0].type == 'email' and user.update_email(message):
             bot.send_message(message.chat.id, text=config.States.S_FINISH_MESSAGE.value, parse_mode='Markdown')
             dbworker.set_state(message.chat.id, config.States.S_START.value)
-    except:
+            print('ok')
+            text = "На данный момент доступны следующие университеты:"
+            show_data_from(message.chat.id, text, 'universities', None, None)
+    except Exception as e:
+        print(e)
         bot.send_message(message.chat.id, text=config.States.S_ERROR_MESSAGE.value)
         dbworker.set_state(message.chat.id, config.States.S_EMAIL.value)
 
-# --- ------- ----
+
+# ------- universities & departments & directions  --------
+
+def show_data_from(chat_id, text, table, val_where, val):
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    objects = user.get_data_from(table, val_where, val)
+    for obj in objects:
+        callback = str(obj[0]) + "_" + table
+        markup.add(InlineKeyboardButton(obj[1], callback_data=callback))
+
+    bot.send_message(chat_id, text=text, reply_markup=markup)
+
+
+# ------- add direction --------
+@bot.message_handler(commands=['addUniversity'])
+def add_university(message):
+    text = "На данный момент доступны следующие университеты:"
+    show_data_from(message.chat.id, text, 'universities', None, None)
+
+
+@bot.callback_query_handler(func=lambda call: re.match(r'\d{,}[1-9]_universities', call.data) is not None)
+def show_departments(call):
+    text = "На данный момент для этого университета доступны следующие факультеты:"
+    un_id = int(re.match(r'\d{,}[1-9]', call.data).group())
+    show_data_from(call.message.chat.id, text, 'departments', 'un_id', un_id)
+
+
+@bot.callback_query_handler(func=lambda call: re.match(r'\d{,}[1-9]_departments', call.data) is not None)
+def show_directions(call):
+    text = "На данный момент для этого факультета доступны следующие направления:"
+    dp_id = int(re.match(r'\d{,}[1-9]', call.data).group())
+    show_data_from(call.message.chat.id, text, 'directions', 'dp_id', dp_id)
+
+
+@bot.callback_query_handler(func=lambda call: re.match(r'\d{,}[1-9]_directions', call.data) is not None)
+def show_directions(call):
+    dr_id = re.match(r'\d{,}[1-9]', call.data).group()
+    text = "Вы выбрали университет " + dr_id
+    bot.send_message(call.message.chat.id, text=text)
 
 
 bot.infinity_polling()

@@ -31,7 +31,8 @@ class States(Enum):
                       "Вероятно вы допустили кукую-то ошибку.\n" \
                       "Попробуйте ввести еще раз"
 
-    S_FINISH_MESSAGE = "*Все данные успешно сохранены!*\nТеперь давай добавим университет"
+    S_FINISH_MESSAGE = "*Все данные успешно сохранены!*\n" \
+                       "Теперь давай добавим университет.\n"
 
 
 def finished_registration(chat_id):
@@ -71,6 +72,8 @@ def birthday_filter(chat_id):
 
 def email_filter(chat_id):
     return dbworker.get_current_state(chat_id) == States.S_EMAIL.value
+
+
 
 
 
