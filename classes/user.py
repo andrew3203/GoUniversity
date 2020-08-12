@@ -51,6 +51,20 @@ def update_birthday(message):
     return False
 
 
+def update_email(message):
+    email = message.text
+    try:
+        with psycopg2.connect(DNS) as conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE users SET  email = %s, user_type = %s WHERE chat_id = %s",
+                            (email, 'user', message.chat.id))
+                conn.commit()
+                return True
+    except Exception as e:
+        print(e)
+        return False
+
+
 def get_data(chat_id):
     data = {}
     try:
@@ -101,6 +115,7 @@ def is_new(chat_id):
     except Exception as e:
         print(e)
         return False
+
 
 
 class User:

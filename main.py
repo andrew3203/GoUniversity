@@ -34,21 +34,19 @@ def send_welcome(message):
 
 @bot.message_handler(commands=['help'])
 @bot.callback_query_handler(func=lambda call: call.data == 'help')
-@bot.message_handler(func=lambda message: message.text == 'Что ты умеешь?')
-def ask_help(message):
+def ask_help(call):
     text = "Описание возможностей. Перечень доступных команд"
-    bot.send_message(message.chat.id, parse_mode='Markdown', text=text)
+    bot.send_message(call.message.chat.id, text=text)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'complete_personal_data')
-@bot.message_handler(func=lambda message: message.text == 'Ввести личные дынные!')
-def ask_personal_data(message):
+def ask_personal_data(call):
     text = "Для начала необходимо подписать согласие на обработку персональных данных: "
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
     markup.add(InlineKeyboardButton("Даю согласие", callback_data="agreed"),
                InlineKeyboardButton("Прочитать согласие", callback_data="send_consent"))
-    bot.send_message(message.chat.id, parse_mode='Markdown', text=text, reply_markup=markup)
+    bot.send_message(call.message.chat.id, parse_mode='Markdown', text=text, reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda call: call.data in ['agreed', 'send_consent'])  # !!double click error
@@ -132,16 +130,12 @@ def user_entering_birthday(message):
 @bot.message_handler(func=lambda message: config.email_filter(message.chat.id))
 def user_entering_email(message):
     try:
-        if message.entities[0].type == 'email':
-            pass
+        if message.entities[0].type == 'email' and user.update_email(message):
+            bot.send_message(message.chat.id, text=config.States.S_FINISH_MESSAGE.value, parse_mode='Markdown')
+            dbworker.set_state(message.chat.id, config.States.S_START.value)
     except:
         bot.send_message(message.chat.id, text=config.States.S_ERROR_MESSAGE.value)
         dbworker.set_state(message.chat.id, config.States.S_EMAIL.value)
-        return
-
-    bot.send_message(message.chat.id, text=config.States.S_FINISH_MESSAGE.value, parse_mode='Markdown')
-    dbworker.set_state(message.chat.id, config.States.S_START.value)
-
 
 # --- ------- ----
 
