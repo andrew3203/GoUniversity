@@ -136,7 +136,7 @@ def user_entering_email(message):
             dbworker.set_state(message.chat.id, config.States.S_START.value)
 
             text = "На данный момент к системе подключены следующие университеты"
-            markup = get_markup_from('universities', None, None)
+            markup = get_markup_for_obj('universities', None, None)
             bot.send_message(message.chat.id, text=text, reply_markup=markup)
     except Exception as e:
         print(e)
@@ -144,9 +144,9 @@ def user_entering_email(message):
         dbworker.set_state(message.chat.id, config.States.S_EMAIL.value)
 
 
-# ------- universities & departments & directions  --------
+# ------- markup for universities & departments & directions  --------
 
-def get_markup_from(table, val_where, val):
+def get_markup_for_obj(table, val_where, val):
     markup = InlineKeyboardMarkup()
     markup.row_width = 3
     objects = user.get_data_from(table, val_where, val)
@@ -157,19 +157,35 @@ def get_markup_from(table, val_where, val):
     return markup
 
 
+def get_all_user_directions_markup(chat_id):
+    directions = user.get_al_user_directions(chat_id)
+    if not len(directions) == 0:
+        markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+        for direction in directions:
+            text = "{}. {}. {}".format(direction[0], direction[1], direction[2])
+            markup.add(types.KeyboardButton(text))
+        return markup
+    else:
+        return None
+
+
 # ------- add direction --------
-@bot.message_handler(commands=['addUniversity'])
+@bot.message_handler(commands=['ShowUniversities'])
 def add_university(message):
-    text = "На данный момент к системе подключены следующие университеты"
-    markup = get_markup_from('universities', None, None)
-    bot.send_message(message.chat.id, text=text, reply_markup=markup)
+    ans = config.finished_registration(message.chat.id)
+    if ans is not None:
+        bot.send_message(message.chat.id, text=ans)
+    else:
+        text = "На данный момент к системе подключены следующие университеты"
+        markup = get_markup_for_obj('universities', None, None)
+        bot.send_message(message.chat.id, text=text, reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda call: re.match(r'\d{,}[1-9]_universities', call.data) is not None)
 def show_departments(call):
     text = "Для этого университета на данный момент доступны следующие факультеты:"
     un_id = int(re.match(r'\d{,}[1-9]', call.data).group())
-    markup = get_markup_from('departments', 'un_id', un_id)
+    markup = get_markup_for_obj('departments', 'un_id', un_id)
     bot.send_message(call.message.chat.id, text=text, reply_markup=markup)
 
 
@@ -177,7 +193,7 @@ def show_departments(call):
 def show_directions(call):
     text = "Для этого факультета доступны следующие направления:"
     dp_id = int(re.match(r'\d{,}[1-9]', call.data).group())
-    markup = get_markup_from('directions', 'dp_id', dp_id)
+    markup = get_markup_for_obj('directions', 'dp_id', dp_id)
     bot.send_message(call.message.chat.id, text=text, reply_markup=markup)
 
 
@@ -186,20 +202,47 @@ def show_directions(call):
     dr_id = int(re.match(r'\d{,}[1-9]', call.data).group())
     ans = user.update_directions(call.message.chat.id, dr_id)
     if ans == 2:
-        text = 'Вы уже добавили себе это направление\n' \
-                'Если вы хотите посмотреть свою позицию в списке в этом направлении, введите:\n' \
-                '*<command>*\n' \
+        bot.send_message(call.message.chat.id, text='Вы уже добавили себе это направление')
+        text = 'Если вы хотите посмотреть свою позицию в списке в этом направлении\n' \
+               '*откройте дополнительную клавиатуру* или введите:\n' \
+                '*/showDirections*\n' \
                 'Если вы хотите добавить еще направление, просто выбирите его из списка выше)'
+        markup = get_all_user_directions_markup(call.message.chat.id)
+        bot.send_message(call.message.chat.id, text=text, parse_mode='Markdown', reply_markup=markup)
     elif ans == 1:
-        text = 'Отлично! Направление добавлено!\n' \
-               'Теперь, чтобы посмотреть свою возицию в списке в этом направлении, введите:\n' \
-               '*<command>*\n' \
+        bot.send_message(call.message.chat.id, text='Отлично! Направление добавлено!')
+        text = 'Теперь, чтобы посмотреть свою возицию в списке в этом направлении\n' \
+               '*откройте дополнительную клавиатуру* или введите:\n' \
+               '*/showDirections*\n' \
                'Если вы хотите добавить еще направление, просто выбирите его из списка выше)'
+        markup = get_all_user_directions_markup(call.message.chat.id)
+        bot.send_message(call.message.chat.id, text=text, parse_mode='Markdown', reply_markup=markup)
     else:
         text = 'Что-то пошло не так....\n' \
                'Попробуйте повторно выбрать направдение'
+        bot.send_message(call.message.chat.id, text=text)
 
-    bot.send_message(call.message.chat.id, text=text, parse_mode='Markdown')
+
+@bot.message_handler(commands=['showDirections'])
+def show_user_directions(message):
+    ans = config.finished_registration(message.chat.id)
+    if user.is_new(message.chat.id) or ans is not None:
+        bot.send_message(message.chat.id, text=ans)
+    else:
+        markup = get_all_user_directions_markup(message.chat.id)
+        if markup is not None:
+            text = 'Вам доступны следующие направления\n' \
+                   'Нажмите на одно из них, чтобы посмотреть свою позицую.'
+            bot.send_message(message.chat.id, text=text, reply_markup=markup)
+        else:
+            text = 'На данный момент у вас *нету ни одного добавленного направления*.\n' \
+                   'Введите /ShowUniversities чтобы добавить его!'
+            bot.send_message(message.chat.id, text=text, parse_mode='Markdown')
+
+
+@bot.message_handler(func=lambda message: config.direction_filter(message.text))
+def get_direction_info(message):
+    print(message.text)
 
 
 bot.infinity_polling()

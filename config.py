@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from enum import Enum
-
+import re
 import dbworker
 
 TOKEN = '1232696304:AAHjcTwO3oelfj6fWAmg1pcADKG081jlqpY'
@@ -10,13 +10,13 @@ db_file = "database.vdb"
 
 class States(Enum):
     S_START = "0"  # Начало нового диалога
-    S_START_MESSAGE = 'Давайте продолжим регистрацию'
+    S_START_MESSAGE = 'Давайте для начала зарегистрируемся'
 
     S_NAME = "1"
     S_NAME_MESSAGE = 'Введите имя:'
 
     S_LAST_NAME = "2"
-    S_LAST_NAME_MESSAGE = "Запомню! Теперь укажи, пожалуйста, свою фаммилию."
+    S_LAST_NAME_MESSAGE = "Укажи, пожалуйста, свою фаммилию."
 
     S_MIDDLE_NAME = "3"
     S_MIDDLE_NAME_MESSAGE = "Отлично! Теперь укажи, пожалуйста, отчество."
@@ -73,6 +73,17 @@ def birthday_filter(chat_id):
 def email_filter(chat_id):
     return dbworker.get_current_state(chat_id) == States.S_EMAIL.value
 
+
+def direction_filter(data):
+    try:
+        arr = data.split('. ')
+        if len(arr) and \
+                arr[0].isalpha() and arr[1].isalpha() and arr[2].isalpha():
+            return True
+        else:
+            return False
+    except:
+        return False
 
 
 

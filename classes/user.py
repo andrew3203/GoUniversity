@@ -159,3 +159,21 @@ def get_data_from(table, val_where, val):
         print(e)
         return []
 
+
+def get_al_user_directions(chat_id):
+    try:
+        with psycopg2.connect(DNS) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT directions FROM users WHERE chat_id = %(int)s", {'int': chat_id})
+                directions = tuple(cur.fetchone()[0])
+                sql = "SELECT universities.name, departments.name, directions.name " \
+                      "FROM universities, departments, directions  " \
+                      "WHERE directions.dp_id = departments.id and departments.un_id = universities.id " \
+                      "and directions.id in %s;"
+                cur.execute(sql, (directions,))
+                return cur.fetchall()
+
+    except Exception as e:
+        print(e)
+        return []
+
