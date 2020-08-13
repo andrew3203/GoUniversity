@@ -15,7 +15,7 @@ bot = telebot.TeleBot(config.TOKEN)
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     if not user.is_new(message.chat.id):
-        name = user.get_user_data(message.chat.id)['last_name']
+        name = user.get_user_data(message.chat.id)['first_name']
     elif not message.from_user.first_name == '':
         name = message.from_user.first_name
     else:
@@ -169,6 +169,21 @@ def get_all_user_directions_markup(chat_id):
         return None
 
 
+def get_direction_data(un_name, dp_name, dr_name, chat_id):
+    ans = user.get_direction(un_name, dp_name, dr_name, chat_id)
+    if ans is not None and not len(ans) == 0:
+        text = "*Направление {}, {}*\n" \
+               "----------------------\n" \
+               "Место с таблице: *{}\n*" \
+               "Наличие оригинала: *{}*\n" \
+               "С оригиналом будет: *{}*\n"
+        text_1 = "Колличесво поступающий в списке *{}*\n" \
+                 "Колличество оригиналов в списке: *{}*"
+        return [text.format(dp_name, un_name, 10, 'нет', 2), text_1.format(ans[0], ans[1]), ans[2]]
+    else:
+        return None
+
+
 # ------- add direction --------
 @bot.message_handler(commands=['ShowUniversities'])
 def add_university(message):
@@ -242,7 +257,20 @@ def show_user_directions(message):
 
 @bot.message_handler(func=lambda message: config.direction_filter(message.text))
 def get_direction_info(message):
-    print(message.text)
+    ans = config.finished_registration(message.chat.id)
+    if user.is_new(message.chat.id) or ans is not None:
+        bot.send_message(message.chat.id, text=ans)
+    else:
+        a, b, c = message.text.split('. ')
+        info = get_direction_data(a, b, c, message.chat.id)
+        if info is not None:
+            bot.send_message(chat_id=message.chat.id, text=info[0], parse_mode='Markdown')
+            markup = InlineKeyboardMarkup()
+            markup.add(InlineKeyboardButton('Откыть сайт', url=info[2], callback_data='open_site'))
+            bot.send_message(chat_id=message.chat.id, text=info[1], parse_mode='Markdown', reply_markup=markup)
+        else:
+            text = 'Вероятно что-то пошло не так, попробуйте повторить запрос'
+            bot.send_message(message.chat.id, text=text)
 
 
 bot.infinity_polling()

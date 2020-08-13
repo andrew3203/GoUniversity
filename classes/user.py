@@ -177,3 +177,20 @@ def get_al_user_directions(chat_id):
         print(e)
         return []
 
+
+def get_direction(un_name, dp_name, dr_name, chat_id):
+    try:
+        with psycopg2.connect(DNS) as conn:
+            with conn.cursor() as cur:
+                sql = "SELECT directions.applicants_came, directions.originals_amount, " \
+                      "directions.data_link  FROM users, universities, departments, directions " \
+                      "WHERE users.chat_id = %s and directions.name = %s and departments.name = %s and " \
+                      "universities.name = %s"
+                cur.execute(sql, (chat_id, dr_name, dp_name, un_name))
+                return cur.fetchone()
+
+    except Exception as e:
+        print(e)
+        return []
+
+
