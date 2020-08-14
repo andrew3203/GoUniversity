@@ -160,13 +160,13 @@ def get_data_from(table, val_where, val):
         return []
 
 
-def get_al_user_directions(chat_id):
+def get_all_user_directions(chat_id):
     try:
         with psycopg2.connect(DNS) as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT directions FROM users WHERE chat_id = %(int)s", {'int': chat_id})
                 directions = tuple(cur.fetchone()[0])
-                sql = "SELECT universities.name, departments.name, directions.name " \
+                sql = "SELECT universities.name, departments.name, directions.name, directions.id " \
                       "FROM universities, departments, directions  " \
                       "WHERE directions.dp_id = departments.id and departments.un_id = universities.id " \
                       "and directions.id in %s;"
@@ -192,5 +192,27 @@ def get_direction(un_name, dp_name, dr_name, chat_id):
     except Exception as e:
         print(e)
         return []
+
+
+def delete_directions(chat_id, remove):
+    try:
+        with psycopg2.connect(DNS) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT directions FROM users WHERE chat_id = %(int)s", {'int': int(chat_id)})
+                ans = cur.fetchall()[0]
+                res = []
+                for num in ans[0]:
+                    if num not in remove:
+                        res.append(num)
+
+                cur.execute("UPDATE users SET  directions = %s WHERE chat_id = %s", (res, chat_id))
+
+                conn.commit()
+
+                return True
+
+    except Exception as e:
+        print(e)
+        return False
 
 
