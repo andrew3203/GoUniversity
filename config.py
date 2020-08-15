@@ -41,6 +41,9 @@ class States(Enum):
     S_PROBLEM = "6"
     S_PROBLEM_MESSAGE = 'Пожайлуста, опишите с начала проблему, о которой хотели сообщить'
 
+    S_REVIEW = "7"
+    S_REVIEW_MESSAGE = 'Пожайлуста, закончите с начала отправку отзыва'
+
 
 def finished_registration(chat_id):
     if not dbworker.get_current_state(chat_id) == States.S_START.value:
@@ -58,6 +61,8 @@ def finished_registration(chat_id):
             text = States.S_EMAIL_MESSAGE.value
         elif cur == '6':
             text = States.S_PROBLEM_MESSAGE.value
+        elif cur == '7':
+            text = States.S_REVIEW_MESSAGE.value
         else:
             text = States.S_ERROR_MESSAGE.value
 
@@ -87,6 +92,10 @@ def email_filter(chat_id):
 
 def problem_filter(chat_id):
     return dbworker.get_current_state(chat_id) == States.S_PROBLEM.value
+
+
+def review_filter(chat_id):
+    return dbworker.get_current_state(chat_id) == States.S_REVIEW.value
 
 
 def direction_filter(data):

@@ -104,17 +104,16 @@ def get_user_data(chat_id):
                     'email': fet[5],
                     'phone': fet[6],
                     'user_type': fet[7],
-                    'subscription': fet[8],
-                    'request_per_day': fet[9],
-                    'coast': fet[10],
-                    'ege_score': fet[11],
-                    'waiting_for_updates': fet[12],
-                    'received_code': fet[13],
-                    'shared_code': fet[14],
-                    'directions': fet[15],
-                    'id': fet[16],
-                    'chat_id': fet[17],
-                    'signed_consent': fet[18],
+                    'request_per_day': fet[8],
+                    'coast': fet[9],
+                    'ege_score': fet[10],
+                    'waiting_for_updates': fet[11],
+                    'received_code': fet[12],
+                    'shared_code': fet[13],
+                    'directions': fet[14],
+                    'id': fet[15],
+                    'chat_id': fet[16],
+                    'signed_consent': fet[17],
                 }
                 return data
     except Exception as e:
@@ -128,9 +127,9 @@ def is_new(chat_id):
         with psycopg2.connect(DNS) as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                INSERT INTO public.users( date_register, chat_id, user_type, subscription, request_per_day, 
+                INSERT INTO public.users( date_register, chat_id, user_type, request_per_day, 
                 signed_consent) VALUES (%s, %s, %s, %s, %s, %s);""",
-                            (datetime.datetime.now(), chat_id, 'guest', False, 0, False))
+                            (datetime.datetime.now(), chat_id, 'guest', 0, False))
 
                 conn.commit()
             return True
@@ -293,6 +292,24 @@ def save_user_problem(chat_id, problem):
             with conn.cursor() as cur:
                 cur.execute("""INSERT INTO public.problems(chat_id, problem, date_add, need_update) 
                 VALUES (%s, %s, %s, %s);""", (chat_id, problem, datetime.datetime.now(), True))
+                return True
+
+    except Exception as e:
+        print(e)
+        return False
+
+
+def save_review(chat_id, table='service_reviews', text=None, mark=None):
+    try:
+        with psycopg2.connect(DNS) as conn:
+            with conn.cursor() as cur:
+                if text is None:
+                    sql = "INSERT INTO {} (chat_id, mark, add_date) VALUES (%s, %s, %s);".format(table)
+                    cur.execute(sql, (chat_id, mark, datetime.datetime.now()))
+                else:
+                    sql = "INSERT INTO {} (chat_id, text, add_date) VALUES (%s, %s, %s);".format(table)
+                    cur.execute(sql, (chat_id, text, datetime.datetime.now()))
+
                 return True
 
     except Exception as e:

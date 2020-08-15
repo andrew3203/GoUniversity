@@ -531,5 +531,76 @@ def get_direction_info(message):
     bot.send_message(chat_id=message.chat.id, text=text, parse_mode='Markdown')
 
 
+# ------- reviews --------
+def ask_service_review(chat_id, text=None):
+    text = 'Как вам сервис, раскажите?\n' \
+           'Нам помогает это становиться лучше!'
+    markup = InlineKeyboardMarkup()
+
+    icons = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣']
+    data = ()
+    for i in range(len(icons)):
+        data += (InlineKeyboardButton(text=icons[i], callback_data='star_' + str(i)),)
+    markup.row(*data)
+    markup.add(InlineKeyboardButton(text='Написать отзыв', callback_data='write_review'))
+    bot.send_message(chat_id, text, reply_markup=markup)
+
+
+# as a test
+@bot.message_handler(commands=['test'])
+def get_direction_info(message):
+    ask_service_review(message.chat.id)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'write_review')
+def add_waiting(call):
+    text = 'Пожайлуста, напишите а затем отправте мне ваш отзыв'
+    dbworker.set_state(call.message.chat.id, config.States.S_REVIEW.value)
+    bot.send_message(chat_id=call.message.chat.id, text=text, parse_mode='Markdown')
+
+
+@bot.callback_query_handler(func=lambda call: re.match(r'star_[0-9]', call.data) is not None)
+def add_waiting(call):
+    mark = int(call.data.split('_')[1])
+
+    count = -1
+    for obj in call.message.json['reply_markup']['inline_keyboard'][0]:
+        if obj['text'] == '👍':
+            count += 1
+
+    if not mark == count:
+        markup = InlineKeyboardMarkup()
+        icons = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣']
+        data = ()
+        for i in range(len(icons)):
+            if i <= mark:
+                data += (InlineKeyboardButton(text='👍', callback_data='star_' + str(i)),)
+            else:
+                data += (InlineKeyboardButton(text=icons[i], callback_data='star_' + str(i)),)
+
+        markup.row(*data)
+        markup.add(InlineKeyboardButton(text='Написать отзыв', callback_data='write_review'))
+
+        bot.edit_message_text(chat_id=call.message.chat.id, text='Вы поставили оценку {}/7'.format(mark),
+                              message_id=call.message.message_id, reply_markup=markup)
+
+    if user.save_review(call.message.chat.id, mark=mark):
+        bot.answer_callback_query(call.id, 'Данные успешно получены!')
+
+
+@bot.message_handler(func=lambda message: config.review_filter(message.chat.id))
+def save_review(message):
+    if user.save_review(message.chat.id, text=message.text):
+        text = 'Спасибо, что поделились!\n' \
+               'Мы обязательно учтем все ваш отзыв!'
+    else:
+        text = 'Oooppss..\n' \
+               'Возникли какие-то проблемы\n' \
+               'Попробуйте ввести еще раз, или повторите попытку позже'
+
+    dbworker.set_state(message.chat.id, config.States.S_START.value)
+    bot.send_message(chat_id=message.chat.id, text=text, parse_mode='Markdown')
+
+
 bot.infinity_polling()
 
