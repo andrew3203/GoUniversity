@@ -7,11 +7,10 @@ import dbworker
 TOKEN = '1232696304:AAHjcTwO3oelfj6fWAmg1pcADKG081jlqpY'
 db_file = "database.vdb"
 
-ACSESS_LEVEL_1 = ['admin']
-ACSESS_LEVEL_2 = ['admin', 'user:active', 'user:unpaid']
-ACSESS_LEVEL_3 = ['admin', 'user:active', 'user:unpaid', 'user:unpaid:limited']
-ACSESS_LEVEL_4 = ['admin', 'user:active', 'user:unpaid', 'user:unpaid:limited', 'guest']
-
+ACCESS_LEVEL_1 = ['admin']
+ACCESS_LEVEL_2 = ['admin', 'user:active', 'user:unpaid']
+ACCESS_LEVEL_3 = ['admin', 'user:active', 'user:unpaid', 'user:unpaid:limited']
+ACCESS_LEVEL_4 = ['admin', 'user:active', 'user:unpaid', 'user:unpaid:limited', 'guest']
 
 
 class States(Enum):
@@ -40,6 +39,9 @@ class States(Enum):
     S_FINISH_MESSAGE = "*Все данные успешно сохранены!*\n" \
                        "Теперь давай добавим университет.\n"
 
+    S_PROBLEM = "6"
+    S_PROBLEM_MESSAGE = 'Пожайлуста, опишите с начала проблему, о которой хотели сообщить'
+
 
 def finished_registration(chat_id):
     if not dbworker.get_current_state(chat_id) == States.S_START.value:
@@ -53,8 +55,12 @@ def finished_registration(chat_id):
             text = States.S_MIDDLE_NAME_MESSAGE.value
         elif cur == '4':
             text = States.S_BIRTHDAY_MESSAGE.value
-        else:
+        elif cur == '5':
             text = States.S_EMAIL_MESSAGE.value
+        elif cur == '6':
+            text = States.S_PROBLEM_MESSAGE.value
+        else:
+            text = States.S_ERROR_MESSAGE.value
 
         return text
     return None
@@ -78,6 +84,10 @@ def birthday_filter(chat_id):
 
 def email_filter(chat_id):
     return dbworker.get_current_state(chat_id) == States.S_EMAIL.value
+
+
+def problem_filter(chat_id):
+    return dbworker.get_current_state(chat_id) == States.S_PROBLEM.value
 
 
 def direction_filter(data):

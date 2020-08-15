@@ -74,15 +74,15 @@ def update_directions(chat_id, dr_id):
         with psycopg2.connect(DNS) as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT directions FROM users WHERE chat_id = %(int)s", {'int': chat_id})
-                mas = cur.fetchone()[0]
-                if mas is None:
-                    mas = [dr_id]
-                elif dr_id not in mas:
-                    mas.append(dr_id)
+                directions = cur.fetchone()[0]
+                if directions is None:
+                    directions = [dr_id]
+                elif dr_id not in directions:
+                    directions.append(dr_id)
                 else:
                     return 2
 
-                cur.execute("UPDATE users SET  directions = %s  WHERE chat_id = %s", (mas, chat_id))
+                cur.execute("UPDATE users SET  directions = %s  WHERE chat_id = %s", (directions, chat_id))
                 conn.commit()
         return 1
     except Exception as e:
@@ -130,9 +130,9 @@ def is_new(chat_id):
         with psycopg2.connect(DNS) as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                INSERT INTO public.users( date_register, chat_id, payed, user_type, subscription, request_per_day, 
-                coast, waiting_for_updates) VALUES (%s, %s, %s, %s, %s, %s, %s, %s);""",
-                            (datetime.datetime.now(), chat_id, False, 'guest', False, 0, 300, False))
+                INSERT INTO public.users( date_register, chat_id, user_type, subscription, request_per_day, 
+                signed_consent) VALUES (%s, %s, %s, %s, %s, %s);""",
+                            (datetime.datetime.now(), chat_id, 'guest', False, 0, False))
 
                 conn.commit()
             return True
@@ -287,3 +287,16 @@ def get_user_type(chat_id):
     except Exception as e:
         print(e)
         return 'guest'
+
+
+def save_user_problem(chat_id, problem):
+    try:
+        with psycopg2.connect(DNS) as conn:
+            with conn.cursor() as cur:
+                cur.execute("""INSERT INTO public.problems(chat_id, problem, date_add, need_update) 
+                VALUES (%s, %s, %s, %s);""", (chat_id, problem, datetime.datetime.now(), True))
+                return True
+
+    except Exception as e:
+        print(e)
+        return False

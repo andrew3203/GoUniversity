@@ -195,13 +195,17 @@ def get_markup_for_obj(table, val_where, val, un_id=None):
     if table == 'departments':
         text = '« Назад к университетам'
         callback = 'back_from' + "_" + table + '#' + str(val)
-        markup.add(InlineKeyboardButton(text, callback_data=callback))
+        markup.row(InlineKeyboardButton(text, callback_data=callback),
+                   InlineKeyboardButton('Нет моего факультета', callback_data='request_for_updates'))
     elif table == 'directions':
         text = '« Назад к факультетам'
         callback = 'back_from' + "_" + table
         if un_id is not None:
             callback += '#' + un_id
-        markup.add(InlineKeyboardButton(text, callback_data=callback))
+        markup.row(InlineKeyboardButton(text, callback_data=callback),
+                   InlineKeyboardButton('Нет моего направления', callback_data='request_for_updates'))
+    elif table == 'universities':
+        markup.row(InlineKeyboardButton('Нет моего университета', callback_data='request_for_updates'))
 
     return markup
 
@@ -271,7 +275,8 @@ def show_department_callback(call):
             markup.add(InlineKeyboardButton(obj[1], callback_data=callback))
 
     callback = 'back_from_departments' + '#' + un_id
-    markup.add(InlineKeyboardButton('« Назад к университетам', callback_data=callback))
+    markup.add(InlineKeyboardButton('« Назад к университетам', callback_data=callback),
+               InlineKeyboardButton('Нет моего факультета', callback_data='request_for_updates'))
     text = "Для этого университета на данный момент *доступны следующие факультеты:*"
     bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown',
                           text=text, reply_markup=markup)
@@ -302,7 +307,7 @@ def show_directions(call):
 def show_direction(call):
     dr_id = int(re.match(r'\d{,}[1-9]', call.data).group())
     bot.answer_callback_query(call.id, "Ответ получен, загружаем данные!")
-    if user.get_user_type(call.message.chat.id) in config.ACSESS_LEVEL_2:
+    if user.get_user_type(call.message.chat.id) in config.ACCESS_LEVEL_2:
 
         ans = user.update_directions(call.message.chat.id, dr_id)
         if ans == 2:
@@ -333,13 +338,13 @@ def show_direction(call):
 
 @bot.message_handler(commands=['showmydirections'])
 def add_university(message):
-    if user.get_user_type(message.chat.id) in config.ACSESS_LEVEL_3:
+    if user.get_user_type(message.chat.id) in config.ACCESS_LEVEL_3:
 
         ans = config.finished_registration(message.chat.id)
         if ans is not None:
             bot.send_message(message.chat.id, text=ans)
         else:
-            text = '*Выбирите из выпавшего списка нужное направление.*(откройте дополнительную клавиатуру)\n'
+            text = '*Выбирите из выпавшего списка нужное направление.*\n (откройте дополнительную клавиатуру)'
             markup = get_user_directions_keyboard(message.chat.id)
             bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
     else:
@@ -367,7 +372,7 @@ def show_user_directions(message):
 
 @bot.message_handler(func=lambda message: config.direction_filter(message.text))
 def get_direction_info(message):
-    if user.get_user_type(message.chat.id) in config.ACSESS_LEVEL_2:
+    if user.get_user_type(message.chat.id) in config.ACCESS_LEVEL_2:
         ans = config.finished_registration(message.chat.id)
         if user.is_new(message.chat.id) or ans is not None:
             bot.send_message(message.chat.id, text=ans)
@@ -392,7 +397,7 @@ def get_direction_info(message):
 # ------- edit list of my directions --------
 @bot.message_handler(commands=['editdirections'])
 def edit_directions(message):
-    if user.get_user_type(message.chat.id) in config.ACSESS_LEVEL_3:
+    if user.get_user_type(message.chat.id) in config.ACCESS_LEVEL_3:
 
         ans = config.finished_registration(message.chat.id)
         if user.is_new(message.chat.id) or ans is not None:
@@ -502,6 +507,31 @@ def delete_directions(call):
         text = 'Произошла какая-то ошибка при удалении данных...\n' \
                'Попробуйте повторить опирацию /editdirections'
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text)
+
+
+# ------- add to waiting for updates--------
+
+@bot.callback_query_handler(func=lambda call: call.data == 'request_for_updates')
+def add_waiting(call):
+    text = 'Напишите, пожайлуста, ваш *университет/факультет/направление*, которое вы не нашли\n' \
+           'Мы приносим прощения и обещаем добаить его в течении 2-ух дней!\n' \
+           '*Как только мы добавми его Вам придет уведомление!*'
+    dbworker.set_state(call.message.chat.id, config.States.S_PROBLEM.value)
+    bot.send_message(chat_id=call.message.chat.id, text=text, parse_mode='Markdown')
+
+
+@bot.message_handler(func=lambda message: config.problem_filter(message.chat.id))
+def get_direction_info(message):
+    if user.save_user_problem(message.chat.id, message.text):
+        text = 'Спасибо, что поделились этой проблемой!\n' \
+               'Мы обязательно исправим все в ближйшее время!'
+    else:
+        text = 'Ooopss..\n' \
+               'Возникли какие-то проблемы\n' \
+               'Попробуйте ввести еще раз, или повторите попытку позже'
+
+    dbworker.set_state(message.chat.id, config.States.S_START.value)
+    bot.send_message(chat_id=message.chat.id, text=text, parse_mode='Markdown')
 
 
 bot.infinity_polling()
