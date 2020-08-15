@@ -42,7 +42,7 @@ def ask_help_command(message):
             "/register - Зарегистрироваться.\n" \
             "/updateprofile - Обновить/изменить данные профиля.\n" \
             "/showuniversities - Показать доступные университеты\n" \
-            "/showdmyirections - Показать мои направления!\n" \
+            "/showmydirections - Показать мои направления!\n" \
             "/editdirections - изменить список направлений\n" \
             "/pay - получить полную версию\n" \
             "/subscribe - подписаться на обновления\n"
@@ -65,14 +65,18 @@ def ask_help(call):
 
 
 # ------- get an agreement --------
-@bot.callback_query_handler(func=lambda call: call.data == 'complete_personal_data')
-def ask_personal_data(call):
+def send_consent(chat_id):
     text = "Для начала необходимо подписать согласие на обработку персональных данных: "
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
     markup.add(InlineKeyboardButton("Даю согласие", callback_data="agreed"),
                InlineKeyboardButton("Прочитать согласие", callback_data="send_consent"))
-    bot.send_message(call.message.chat.id, parse_mode='Markdown', text=text, reply_markup=markup)
+    bot.send_message(chat_id, parse_mode='Markdown', text=text, reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'complete_personal_data')
+def ask_personal_data(call):
+    send_consent(call.message.chat.id)
 
 
 @bot.callback_query_handler(func=lambda call: call.data in ['agreed', 'send_consent', 'disagree'])
@@ -104,8 +108,11 @@ def make_consent(call):
 # ------- register/update profile --------
 @bot.message_handler(commands=['register', 'updateprofile'])
 def profile_register_command(message):
-    dbworker.set_state(message.chat.id, config.States.S_NAME.value)
-    bot.send_message(message.chat.id, text=config.States.S_NAME_MESSAGE.value)
+    if user.check_sign_consent:
+        dbworker.set_state(message.chat.id, config.States.S_NAME.value)
+        bot.send_message(message.chat.id, text=config.States.S_NAME_MESSAGE.value)
+    else:
+        send_consent(message.chat.id)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'register')
@@ -295,37 +302,50 @@ def show_directions(call):
 def show_direction(call):
     dr_id = int(re.match(r'\d{,}[1-9]', call.data).group())
     bot.answer_callback_query(call.id, "Ответ получен, загружаем данные!")
-    ans = user.update_directions(call.message.chat.id, dr_id)
-    if ans == 2:
-        bot.send_message(call.message.chat.id, text='Вы уже добавили себе это направление')
-        text = 'Если вы хотите посмотреть свою позицию по этому направлению\n' \
-               '*Выбирите из выпавшего списка нужное направление*\n' \
-               'Если вы хотите добавить еще направление, просто выбирите его из *списка выше*'
-        markup = get_user_directions_keyboard(call.message.chat.id)
-        bot.send_message(chat_id=call.message.chat.id, text=text, parse_mode='Markdown', reply_markup=markup)
-    elif ans == 1:
-        bot.send_message(call.message.chat.id, text='Отлично! Направление добавлено!')
-        text = 'Теперь, чтобы посмотреть свою возицию в списке в этом направлении\n' \
-               '*Выбирите из выпавшего списка нужное направление*\n' \
-               'Либо введиьте команду\n/showmydirections\n' \
-               'Если вы хотите добавить еще направление, просто выбирите его из списка выше)'
-        markup = get_user_directions_keyboard(call.message.chat.id)
-        bot.send_message(chat_id=call.message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
+    if user.get_user_type(call.message.chat.id) in config.ACSESS_LEVEL_2:
+
+        ans = user.update_directions(call.message.chat.id, dr_id)
+        if ans == 2:
+            bot.send_message(call.message.chat.id, text='Вы уже добавили себе это направление')
+            text = 'Если вы хотите посмотреть свою позицию по этому направлению\n' \
+                   '*Выбирите из выпавшего списка нужное направление*\n' \
+                   'Если вы хотите добавить еще направление, просто выбирите его из *списка выше*'
+            markup = get_user_directions_keyboard(call.message.chat.id)
+            bot.send_message(chat_id=call.message.chat.id, text=text, parse_mode='Markdown', reply_markup=markup)
+        elif ans == 1:
+            bot.send_message(call.message.chat.id, text='Отлично! Направление добавлено!')
+            text = 'Теперь, чтобы посмотреть свою возицию в списке в этом направлении\n' \
+                   '*Выбирите из выпавшего списка нужное направление*\n' \
+                   'Либо введиьте команду\n/showmydirections\n' \
+                   'Если вы хотите добавить еще направление, просто выбирите его из списка выше)'
+            markup = get_user_directions_keyboard(call.message.chat.id)
+            bot.send_message(chat_id=call.message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
+        else:
+            text = 'Что-то пошло не так....\n' \
+                   'Попробуйте повторно выбрать направдение'
+            bot.send_message(call.message.chat.id, text=text)
     else:
-        text = 'Что-то пошло не так....\n' \
-               'Попробуйте повторно выбрать направдение'
-        bot.send_message(call.message.chat.id, text=text)
+        # либо заплатить
+        text = 'Для того, чтобы добавить это направления, вам необходимо автаризироваться.\n' \
+               'Нажмите /register, получить доступ к этой возможности'
+        bot.send_message(chat_id=call.message.chat.id, text=text)
 
 
 @bot.message_handler(commands=['showmydirections'])
 def add_university(message):
-    ans = config.finished_registration(message.chat.id)
-    if ans is not None:
-        bot.send_message(message.chat.id, text=ans)
+    if user.get_user_type(message.chat.id) in config.ACSESS_LEVEL_3:
+
+        ans = config.finished_registration(message.chat.id)
+        if ans is not None:
+            bot.send_message(message.chat.id, text=ans)
+        else:
+            text = '*Выбирите из выпавшего списка нужное направление.*(откройте дополнительную клавиатуру)\n'
+            markup = get_user_directions_keyboard(message.chat.id)
+            bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
     else:
-        text = '*Выбирите из выпавшего списка нужное направление.*(откройте дополнительную клавиатуру)\n'
-        markup = get_user_directions_keyboard(message.chat.id)
-        bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
+        text = 'Для того, чтобы посмотреть направления, вам необходимо автаризироваться.\n' \
+               'Нажмите /register, получить доступ к этой возможности'
+        bot.send_message(chat_id=message.chat.id, text=text)
 
 
 # ------- show my directions --------
@@ -347,38 +367,50 @@ def show_user_directions(message):
 
 @bot.message_handler(func=lambda message: config.direction_filter(message.text))
 def get_direction_info(message):
-    ans = config.finished_registration(message.chat.id)
-    if user.is_new(message.chat.id) or ans is not None:
-        bot.send_message(message.chat.id, text=ans)
-    else:
-        a, b, c = message.text.split('. ')
-        info = get_direction_data(a, b, c, message.chat.id)
-        if info is not None:
-            bot.send_message(chat_id=message.chat.id, text=info[0], parse_mode='Markdown')
-            markup = InlineKeyboardMarkup()
-            markup.add(InlineKeyboardButton('Откыть сайт', url=info[2], callback_data='open_site'))
-            bot.send_message(chat_id=message.chat.id, text=info[1], parse_mode='Markdown', reply_markup=markup)
+    if user.get_user_type(message.chat.id) in config.ACSESS_LEVEL_2:
+        ans = config.finished_registration(message.chat.id)
+        if user.is_new(message.chat.id) or ans is not None:
+            bot.send_message(message.chat.id, text=ans)
         else:
-            text = 'Вероятно что-то пошло не так, попробуйте повторить запрос'
-            bot.send_message(message.chat.id, text=text)
+            a, b, c = message.text.split('. ')
+            info = get_direction_data(a, b, c, message.chat.id)
+            if info is not None:
+                bot.send_message(chat_id=message.chat.id, text=info[0], parse_mode='Markdown')
+                markup = InlineKeyboardMarkup()
+                markup.add(InlineKeyboardButton('Откыть сайт', url=info[2], callback_data='open_site'))
+                bot.send_message(chat_id=message.chat.id, text=info[1], parse_mode='Markdown', reply_markup=markup)
+            else:
+                text = 'Вероятно что-то пошло не так, попробуйте повторить запрос'
+                bot.send_message(message.chat.id, text=text)
+    else:
+        # либо заплатить
+        text = 'Для того, чтобы посмотреть это направление, вам необходимо автаризироваться.\n' \
+               'Нажмите /register, получить доступ к этой возможности'
+        bot.send_message(chat_id=message.chat.id, text=text)
 
 
 # ------- edit list of my directions --------
 @bot.message_handler(commands=['editdirections'])
 def edit_directions(message):
-    ans = config.finished_registration(message.chat.id)
-    if user.is_new(message.chat.id) or ans is not None:
-        bot.send_message(message.chat.id, text=ans)
+    if user.get_user_type(message.chat.id) in config.ACSESS_LEVEL_3:
+
+        ans = config.finished_registration(message.chat.id)
+        if user.is_new(message.chat.id) or ans is not None:
+            bot.send_message(message.chat.id, text=ans)
+        else:
+            directions = user.get_all_user_directions(message.chat.id)
+            markup = InlineKeyboardMarkup()
+            for direction in directions:
+                text = "{}. {}. {}".format(direction[0], direction[1], direction[2])
+                callback = "{}_direction".format(direction[3])
+                markup.add(InlineKeyboardButton(text=text, callback_data=callback))
+            markup.add(InlineKeyboardButton(text='Удалить🗑', callback_data='delete_directions'))
+            text = "Выбирете те направления из списка, которые хотите удалить\nЗатем нажмите *Удалить🗑*"
+            bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
     else:
-        directions = user.get_all_user_directions(message.chat.id)
-        markup = InlineKeyboardMarkup()
-        for direction in directions:
-            text = "{}. {}. {}".format(direction[0], direction[1], direction[2])
-            callback = "{}_direction".format(direction[3])
-            markup.add(InlineKeyboardButton(text=text, callback_data=callback))
-        markup.add(InlineKeyboardButton(text='Удалить🗑', callback_data='delete_directions'))
-        text = "Выбирете те направления из списка, которые хотите удалить\nЗатем нажмите *Удалить🗑*"
-        bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
+        text = 'Для того, чтобы редактировать направления, вам необходимо автаризироваться.\n' \
+               'Нажмите /register, получить доступ к этой возможности'
+        bot.send_message(chat_id=message.chat.id, text=text)
 
 
 @bot.callback_query_handler(func=lambda call: re.match(r'\d{,}[1-9]_direction', call.data) is not None)

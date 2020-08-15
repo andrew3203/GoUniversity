@@ -7,6 +7,12 @@ import dbworker
 TOKEN = '1232696304:AAHjcTwO3oelfj6fWAmg1pcADKG081jlqpY'
 db_file = "database.vdb"
 
+ACSESS_LEVEL_1 = ['admin']
+ACSESS_LEVEL_2 = ['admin', 'user:active', 'user:unpaid']
+ACSESS_LEVEL_3 = ['admin', 'user:active', 'user:unpaid', 'user:unpaid:limited']
+ACSESS_LEVEL_4 = ['admin', 'user:active', 'user:unpaid', 'user:unpaid:limited', 'guest']
+
+
 
 class States(Enum):
     S_START = "0"  # Начало нового диалога

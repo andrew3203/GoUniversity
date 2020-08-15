@@ -58,7 +58,7 @@ def update_email(message):
         with psycopg2.connect(DNS) as conn:
             with conn.cursor() as cur:
                 cur.execute("UPDATE users SET  email = %s, user_type = %s WHERE chat_id = %s",
-                            (email, 'user', message.chat.id))
+                            (email, 'user:unpaid', message.chat.id))
                 conn.commit()
 
     except Exception as e:
@@ -105,18 +105,18 @@ def get_user_data(chat_id):
                     'date_register': fet[4],
                     'email': fet[5],
                     'phone': fet[6],
-                    'payed': fet[7],
-                    'user_type': fet[8],
-                    'subscription': fet[9],
-                    'request_per_day': fet[10],
-                    'coast': fet[11],
-                    'ege_score': fet[12],
-                    'waiting_for_updates': fet[13],
-                    'received_code': fet[14],
-                    'shared_code': fet[15],
-                    'directions': fet[16],
-                    'id': fet[17],
-                    'chat_id': fet[18],
+                    'user_type': fet[7],
+                    'subscription': fet[8],
+                    'request_per_day': fet[9],
+                    'coast': fet[10],
+                    'ege_score': fet[11],
+                    'waiting_for_updates': fet[12],
+                    'received_code': fet[13],
+                    'shared_code': fet[14],
+                    'directions': fet[15],
+                    'id': fet[16],
+                    'chat_id': fet[17],
+                    'signed_consent': fet[18],
                 }
                 return data
     except Exception as e:
@@ -261,3 +261,29 @@ def sign_consent(chat_id, st=True):
     except Exception as e:
         print(e)
         return False
+
+
+def check_sign_consent(chat_id):
+    try:
+        with psycopg2.connect(DNS) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT signed_consent FROM users WHERE chat_id = %(int)s", {'int': chat_id})
+                qur = cur.fetchone()
+                return qur[0]
+
+    except Exception as e:
+        print(e)
+        return False
+
+
+def get_user_type(chat_id):
+    try:
+        with psycopg2.connect(DNS) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT user_type FROM users WHERE chat_id = %(int)s", {'int': chat_id})
+                qur = cur.fetchone()
+                return qur[0]
+
+    except Exception as e:
+        print(e)
+        return 'guest'
