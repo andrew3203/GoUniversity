@@ -1,2 +1,2 @@
-from classes.user import User
-from classes.university import University
+from dbworkers.user import User
+from dbworkers.university import University

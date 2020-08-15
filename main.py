@@ -3,11 +3,8 @@ from telebot import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 import re
-from classes import user
+from dbworkers import user, dbworker
 import config
-import dbworker
-
-import datetime
 
 bot = telebot.TeleBot(config.TOKEN)
 

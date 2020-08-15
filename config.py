@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from enum import Enum
-import re
-import dbworker
+from dbworkers import dbworker
 
 TOKEN = '1232696304:AAHjcTwO3oelfj6fWAmg1pcADKG081jlqpY'
 db_file = "database.vdb"
