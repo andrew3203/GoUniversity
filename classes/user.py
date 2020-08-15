@@ -182,16 +182,38 @@ def get_direction(un_name, dp_name, dr_name, chat_id):
     try:
         with psycopg2.connect(DNS) as conn:
             with conn.cursor() as cur:
-                sql = "SELECT directions.applicants_came, directions.originals_amount, " \
-                      "directions.data_link  FROM users, universities, departments, directions " \
-                      "WHERE users.chat_id = %s and directions.name = %s and departments.name = %s and " \
-                      "universities.name = %s"
-                cur.execute(sql, (chat_id, dr_name, dp_name, un_name))
+                cur.execute("SELECT directions FROM users WHERE chat_id = %(int)s", {'int': chat_id})
+                directions_id = tuple(cur.fetchone()[0])
+
+                cur.execute("SELECT dp_id FROM directions WHERE id in %s and name = %s", (directions_id, dr_name))
+                dp_ids = tuple([num[0] for num in cur.fetchall()])
+
+                if len(dp_ids) == 0:
+                    return None
+                elif len(dp_ids) == 1:
+                    cur.execute("SELECT applicants_came, originals_amount, data_link "
+                                "FROM directions WHERE id in %s and name = %s", (directions_id, dr_name))
+                    return cur.fetchone()
+
+                cur.execute("SELECT un_id FROM departments WHERE id in %s and name = %s", (dp_ids, dp_name))
+                un_ids = tuple([num[0] for num in cur.fetchall()])
+
+                # back
+                cur.execute("SELECT id FROM universities WHERE id in %s and name = %s", (un_ids, un_name))
+                un_id = cur.fetchone()
+
+                cur.execute("SELECT id FROM departments WHERE un_id = %s and name = %s", (un_id, dp_name))
+                dp_id = cur.fetchone()
+
+                cur.execute("""
+                SELECT applicants_came, originals_amount, data_link
+                FROM directions WHERE dp_id = %s and name = %s""", (dp_id, dr_name))
+
                 return cur.fetchone()
 
     except Exception as e:
         print(e)
-        return []
+        return None
 
 
 def delete_directions(chat_id, remove):
@@ -216,3 +238,26 @@ def delete_directions(chat_id, remove):
         return False
 
 
+def get_departments_by_un_id(un_id):
+    try:
+        with psycopg2.connect(DNS) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, name FROM departments WHERE un_id = %(int)s", {'int': un_id})
+                ans = cur.fetchall()
+                return ans
+
+    except Exception as e:
+        print(e)
+        return None
+
+
+def sign_consent(chat_id, st=True):
+    try:
+        with psycopg2.connect(DNS) as conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE users SET  signed_consent = %s WHERE chat_id = %s", (st, chat_id))
+                return True
+
+    except Exception as e:
+        print(e)
+        return False

@@ -29,7 +29,7 @@ class States(Enum):
 
     S_ERROR_MESSAGE = "Что то пошло не так...\n" \
                       "Вероятно вы допустили кукую-то ошибку.\n" \
-                      "Попробуйте ввести еще раз"
+                      "Попробуйте ввести свои данные еще раз"
 
     S_FINISH_MESSAGE = "*Все данные успешно сохранены!*\n" \
                        "Теперь давай добавим университет.\n"
@@ -77,13 +77,17 @@ def email_filter(chat_id):
 def direction_filter(data):
     try:
         arr = data.split('. ')
-        if len(arr) and \
+        if len(arr) == 3 and \
                 arr[0].isalpha() and arr[1].isalpha() and arr[2].isalpha():
             return True
         else:
             return False
     except:
         return False
+
+
+
+
 
 
 

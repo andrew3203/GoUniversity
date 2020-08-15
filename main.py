@@ -37,31 +37,31 @@ def send_welcome(message):
 @bot.message_handler(commands=['help'])
 def ask_help_command(message):
     text = "*Вот список доступных команд*\n" \
-            "start - Запустить бота, поехали!" \
-            "/help - Спросить, что ты умеешь?" \
-            "/register - Зарегистрироваться." \
-            "/updateprofile - Обновить/изменить данные профиля." \
-            "/showuniversities - Показать доступные университеты" \
-            "/showmydirections - Показать мои направления!" \
-            "/editdirections - изменить список направлений" \
-            "/pay - получить полную версию" \
-            "/subscribe - подписаться на обновления"
-    bot.send_message(message.chat.id, text=text)
+            "/start - Запустить бота, поехали!\n" \
+            "/help - Спросить, что ты умеешь?\n" \
+            "/register - Зарегистрироваться.\n" \
+            "/updateprofile - Обновить/изменить данные профиля.\n" \
+            "/showuniversities - Показать доступные университеты\n" \
+            "/showdmyirections - Показать мои направления!\n" \
+            "/editdirections - изменить список направлений\n" \
+            "/pay - получить полную версию\n" \
+            "/subscribe - подписаться на обновления\n"
+    bot.send_message(message.chat.id, text=text, parse_mode='Markdown')
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'help')
 def ask_help(call):
     text = "*Вот список доступных команд*\n" \
-           "start - Запустить бота, поехали!" \
-           "/help - Спросить, что ты умеешь?" \
-           "/register - Зарегистрироваться." \
-           "/updateprofile - Обновить/изменить данные профиля." \
-           "/showuniversities - Показать доступные университеты" \
-           "/showmydirections - Показать мои направления!" \
-           "/editdirections - изменить список направлений" \
-           "/pay - получить полную версию" \
-           "/subscribe - подписаться на обновления"
-    bot.send_message(call.message.chat.id, text=text)
+           "/start - Запустить бота, поехали!\n" \
+           "/help - Спросить, что ты умеешь?\n" \
+           "/register - Зарегистрироваться.\n" \
+           "/updateprofile - Обновить/изменить данные профиля.\n" \
+           "/showdmyirections - Показать доступные университеты\n" \
+           "/showmydirections - Показать мои направления!\n" \
+           "/editdirections - изменить список направлений\n" \
+           "/pay - получить полную версию\n" \
+           "/subscribe - подписаться на обновления\n"
+    bot.send_message(call.message.chat.id, text=text, parse_mode='Markdown')
 
 
 # ------- get an agreement --------
@@ -81,8 +81,8 @@ def make_consent(call):
            "Нажмите: _Ввести данные_, чтобы заполнить необходимую информацию\n" \
            "Старайтесь вводить данные без лишних символов:)"
     if call.data == "agreed":
+        user.sign_consent(call.message.chat.id)
         markup = InlineKeyboardMarkup()
-        markup.row_width = 2
         markup.add(InlineKeyboardButton("Даю согласие✅", callback_data="disagree"),
                    InlineKeyboardButton("Прочитать согласие", callback_data='send_consent'))
 
@@ -166,9 +166,10 @@ def user_entering_email(message):
             bot.send_message(message.chat.id, text=config.States.S_FINISH_MESSAGE.value, parse_mode='Markdown')
             dbworker.set_state(message.chat.id, config.States.S_START.value)
 
-            text = "На данный момент к системе подключены следующие университеты"
-            markup = get_markup_for_obj('universities', None, None)
-            bot.send_message(message.chat.id, text=text, reply_markup=markup)
+            send_university_list(message.chat.id)
+        else:
+            bot.send_message(message.chat.id, text=config.States.S_ERROR_MESSAGE.value)
+            dbworker.set_state(message.chat.id, config.States.S_EMAIL.value)
     except Exception as e:
         print(e)
         bot.send_message(message.chat.id, text=config.States.S_ERROR_MESSAGE.value)
@@ -177,18 +178,28 @@ def user_entering_email(message):
 
 # ------- markup for universities & departments & directions  --------
 
-def get_markup_for_obj(table, val_where, val):
+def get_markup_for_obj(table, val_where, val, un_id=None):
     markup = InlineKeyboardMarkup()
-    markup.row_width = 3
     objects = user.get_data_from(table, val_where, val)
     for obj in objects:
         callback = str(obj[0]) + "_" + table
         markup.add(InlineKeyboardButton(obj[1], callback_data=callback))
 
+    if table == 'departments':
+        text = '« Назад к университетам'
+        callback = 'back_from' + "_" + table + '#' + str(val)
+        markup.add(InlineKeyboardButton(text, callback_data=callback))
+    elif table == 'directions':
+        text = '« Назад к факультетам'
+        callback = 'back_from' + "_" + table
+        if un_id is not None:
+            callback += '#' + un_id
+        markup.add(InlineKeyboardButton(text, callback_data=callback))
+
     return markup
 
 
-def get_all_user_directions_markup(chat_id):
+def get_user_directions_keyboard(chat_id):
     directions = user.get_all_user_directions(chat_id)
     if not len(directions) == 0:
         markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
@@ -202,17 +213,24 @@ def get_all_user_directions_markup(chat_id):
 
 def get_direction_data(un_name, dp_name, dr_name, chat_id):
     ans = user.get_direction(un_name, dp_name, dr_name, chat_id)
-    if ans is not None and not len(ans) == 0:
-        text = "*Направление {}, {}*\n" \
+    if ans is not None:
+
+        text = "*Направление {}, {} {}*\n" \
                "----------------------\n" \
                "Место с таблице: *{}\n*" \
                "Наличие оригинала: *{}*\n" \
                "С оригиналом будет: *{}*\n"
         text_1 = "Колличесво поступающий в списке *{}*\n" \
                  "Колличество оригиналов в списке: *{}*"
-        return [text.format(dp_name, un_name, 10, 'нет', 2), text_1.format(ans[0], ans[1]), ans[2]]
+        return [text.format(dr_name, dp_name, un_name, 10, 'нет', 2), text_1.format(ans[0], ans[1]), ans[2]]
     else:
         return None
+
+
+def send_university_list(chat_id):
+    text = "На данный момент к системе подключены следующие университеты"
+    markup = get_markup_for_obj('universities', None, None)
+    bot.send_message(chat_id, text=text, reply_markup=markup)
 
 
 # ------- add direction --------
@@ -222,15 +240,41 @@ def add_university(message):
     if ans is not None:
         bot.send_message(message.chat.id, text=ans)
     else:
-        text = "На данный момент к системе подключены следующие университеты"
-        markup = get_markup_for_obj('universities', None, None)
-        bot.send_message(message.chat.id, text=text, reply_markup=markup)
+        send_university_list(message.chat.id)
+
+
+@bot.callback_query_handler(func=lambda call: 'back_from_departments' == call.data.split('#')[0])  # !!!
+def show_universities_callback(call):
+    text = "На данный момент к системе подключены следующие университеты"
+    bot.answer_callback_query(call.id, "Ответ получен, загружаем данные!")
+    markup = get_markup_for_obj('universities', None, None)
+    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                          text=text, reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: 'back_from_directions' == call.data.split('#')[0])  # !!!
+def show_department_callback(call):
+    bot.answer_callback_query(call.id, "Ответ получен, загружаем данные!")
+    un_id = call.data.split('#')[1]
+    objects = user.get_departments_by_un_id(int(un_id))
+    markup = InlineKeyboardMarkup()
+    if objects is not None:
+        for obj in objects:
+            callback = str(obj[0]) + "_" + 'departments'
+            markup.add(InlineKeyboardButton(obj[1], callback_data=callback))
+
+    callback = 'back_from_departments' + '#' + un_id
+    markup.add(InlineKeyboardButton('« Назад к университетам', callback_data=callback))
+    text = "Для этого университета на данный момент *доступны следующие факультеты:*"
+    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown',
+                          text=text, reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda call: re.match(r'\d{,}[1-9]_universities', call.data) is not None)
 def show_departments(call):
     text = "Для этого университета на данный момент *доступны следующие факультеты:*"
     un_id = int(re.match(r'\d{,}[1-9]', call.data).group())
+    bot.answer_callback_query(call.id, "Ответ получен, загружаем данные!")
     markup = get_markup_for_obj('departments', 'un_id', un_id)
     bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown',
                           text=text, reply_markup=markup)
@@ -239,30 +283,33 @@ def show_departments(call):
 @bot.callback_query_handler(func=lambda call: re.match(r'\d{,}[1-9]_departments', call.data) is not None)
 def show_directions(call):
     text = "Для этого факультета *доступны следующие направления*\nВыбирете одно из них:"
+    un_id = call.message.json['reply_markup']['inline_keyboard'][-1][0]['callback_data'].split('#')[-1]
     dp_id = int(re.match(r'\d{,}[1-9]', call.data).group())
-    markup = get_markup_for_obj('directions', 'dp_id', dp_id)
+    bot.answer_callback_query(call.id, "Ответ получен, загружаем данные!")
+    markup = get_markup_for_obj('directions', 'dp_id', dp_id, un_id)
     bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown',
                           text=text, reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda call: re.match(r'\d{,}[1-9]_directions', call.data) is not None)
-def show_directions(call):
+def show_direction(call):
     dr_id = int(re.match(r'\d{,}[1-9]', call.data).group())
+    bot.answer_callback_query(call.id, "Ответ получен, загружаем данные!")
     ans = user.update_directions(call.message.chat.id, dr_id)
     if ans == 2:
         bot.send_message(call.message.chat.id, text='Вы уже добавили себе это направление')
         text = 'Если вы хотите посмотреть свою позицию по этому направлению\n' \
                '*Выбирите из выпавшего списка нужное направление*\n' \
                'Если вы хотите добавить еще направление, просто выбирите его из *списка выше*'
-        markup = get_all_user_directions_markup(call.message.chat.id)
+        markup = get_user_directions_keyboard(call.message.chat.id)
         bot.send_message(chat_id=call.message.chat.id, text=text, parse_mode='Markdown', reply_markup=markup)
     elif ans == 1:
         bot.send_message(call.message.chat.id, text='Отлично! Направление добавлено!')
         text = 'Теперь, чтобы посмотреть свою возицию в списке в этом направлении\n' \
                '*Выбирите из выпавшего списка нужное направление*\n' \
-               'Либо введиьте команду /showmydirections\n' \
+               'Либо введиьте команду\n/showmydirections\n' \
                'Если вы хотите добавить еще направление, просто выбирите его из списка выше)'
-        markup = get_all_user_directions_markup(call.message.chat.id)
+        markup = get_user_directions_keyboard(call.message.chat.id)
         bot.send_message(chat_id=call.message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
     else:
         text = 'Что-то пошло не так....\n' \
@@ -270,14 +317,24 @@ def show_directions(call):
         bot.send_message(call.message.chat.id, text=text)
 
 
+@bot.message_handler(commands=['showmydirections'])
+def add_university(message):
+    ans = config.finished_registration(message.chat.id)
+    if ans is not None:
+        bot.send_message(message.chat.id, text=ans)
+    else:
+        text = '*Выбирите из выпавшего списка нужное направление.*(откройте дополнительную клавиатуру)\n'
+        markup = get_user_directions_keyboard(message.chat.id)
+        bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
+
+
 # ------- show my directions --------
-@bot.message_handler(commands=['showdmyirections'])
 def show_user_directions(message):
     ans = config.finished_registration(message.chat.id)
     if user.is_new(message.chat.id) or ans is not None:
         bot.send_message(message.chat.id, text=ans)
     else:
-        markup = get_all_user_directions_markup(message.chat.id)
+        markup = get_user_directions_keyboard(message.chat.id)
         if markup is not None:
             text = 'Вам доступны следующие направления\n' \
                    'Нажмите на одно из них, чтобы посмотреть свою позицую.'
@@ -343,7 +400,7 @@ def mark_direction(call):
 
     bot.answer_callback_query(call.id, "Изменения сохранены!")
 
-    text = "*Вы выбралий {}*\nНажмите *Удалить🗑* чтобы избавиться от них"
+    text = "*Вы выбралий {}*\nНажмите *Удалить* чтобы избавиться от них"
     if count == 1:
         text = text.format(str(count) + ' направление')
     elif 0 < count < 5:
@@ -372,7 +429,7 @@ def unmark_direction(call):
 
     bot.answer_callback_query(call.id, "Изменения сохранены!")
 
-    text = "*Вы выбралий {}*\nНажмите *Удалить🗑* чтобы избавиться от них"
+    text = "*Вы выбралий {}*\nНажмите *Удалить* чтобы избавиться от них"
     if count == 1:
         text = text.format(str(count) + ' направление')
     elif 0 < count < 5:
@@ -398,7 +455,7 @@ def delete_directions(call):
 
     if user.delete_directions(call.message.chat.id, directions):
         bot.answer_callback_query(call.id, "Изменения сохранены!")
-        text = "*Вы удалили {}*\nВведите /showdmyirections, чтобы посмотреть обновленный список"
+        text = "*Вы удалили {}*\nВведите /showmydirections, чтобы посмотреть обновленный список"
         if count == 1:
             text = text.format(str(count) + ' направление')
         elif 0 < count < 5:

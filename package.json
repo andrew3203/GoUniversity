@@ -1,0 +1,23 @@
+{'game_short_name': None, 'chat_instance': '3080903195534782100', 'id': '1628148749914578482', 'from_user': {'id': 379082921, 'is_bot': False, 'first_name': 'Andrey', 'username': 'andrew3203', 'last_name': None, 'language_code': 'ru', 'can_join_groups': None, 'can_read_all_group_messages': None, 'supports_inline_queries': None},
+  'message': {
+    'content_type': 'text',
+    'message_id': 1333,
+    'from_user': <telebot.types.User object at 0x7f8957c994d0>, 'date': 1597441746,
+    'chat': <telebot.types.Chat object at 0x7f8957c99850>, 'forward_from': None,
+    'forward_from_chat': None, 'forward_from_message_id': None, 'forward_signature': None, 'forward_date': None, 'reply_to_message': None, 'edit_date': 1597441747, 'media_group_id': None, 'author_signature': None, 'text': 'Для этого университета на данный момент доступны следующие факультеты:',
+    'entities': [<telebot.types.MessageEntity object at 0x7f8957c94590>], 'caption_entities': None, 'audio': None, 'document': None, 'photo': None, 'sticker': None, 'video': None, 'video_note': None, 'voice': None, 'caption': None, 'contact': None, 'location': None, 'venue': None, 'animation': None, 'dice': None, 'new_chat_member': None, 'new_chat_members': None, 'left_chat_member': None, 'new_chat_title': None, 'new_chat_photo': None, 'delete_chat_photo': None, 'group_chat_created': None, 'supergroup_chat_created': None, 'channel_chat_created': None, 'migrate_to_chat_id': None, 'migrate_from_chat_id': None, 'pinned_message': None, 'invoice': None, 'successful_payment': None, 'connected_website': None,
+    'json': {'message_id': 1333,
+      'from': {'id': 1232696304, 'is_bot': True, 'first_name': 'University.GO', 'username': 'UniversityGOBot'},
+      'chat': {'id': 379082921, 'first_name': 'Andrey', 'username': 'andrew3203', 'type': 'private'},
+      'date': 1597441746, 'edit_date': 1597441747,
+      'text': 'Для этого университета на данный момент доступны следующие факультеты:',
+      'entities': [{'offset': 40, 'length': 30, 'type': 'bold'}],
+      'reply_markup': {
+        'inline_keyboard': [
+          [{'text': 'Физфак', 'callback_data': '1_departments'}],
+          [{'text': 'Экономфак', 'callback_data': '2_departments'}],
+          [{'text': 'ВМК', 'callback_data': '3_departments'}],
+          [{'text': 'Физфак', 'callback_data': '4_departments'}],
+          [{'text': '« Назад к университетам', 'callback_data': 'back_from_departments#1'}]
+        ]
+      }}}, 'data': '1_departments', 'inline_message_id': None}
