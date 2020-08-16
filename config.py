@@ -7,9 +7,27 @@ TOKEN = '1232696304:AAHjcTwO3oelfj6fWAmg1pcADKG081jlqpY'
 db_file = "database.vdb"
 
 ACCESS_LEVEL_1 = ['admin']
-ACCESS_LEVEL_2 = ['admin', 'user:active', 'user:unpaid']
-ACCESS_LEVEL_3 = ['admin', 'user:active', 'user:unpaid', 'user:unpaid:limited']
-ACCESS_LEVEL_4 = ['admin', 'user:active', 'user:unpaid', 'user:unpaid:limited', 'guest']
+ACCESS_LEVEL_2 = ['admin', 'user:active']
+ACCESS_LEVEL_3 = ['admin', 'user:active', 'user:unpaid']
+ACCESS_LEVEL_4 = ['admin', 'user:active', 'user:unpaid', 'user:unpaid:limited']
+ACCESS_LEVEL_5 = ['admin', 'user:active', 'user:unpaid', 'user:unpaid:limited', 'guest']
+
+COMMANDS_LIST = "*Вот список доступных команд*\n\n" \
+                "/start - Запустить бота, поехали!\n" \
+                "/help - Спросить, что ты умеешь?\n\n" \
+                "*Управление профилем*\n" \
+                "/register - Зарегистрироваться.\n" \
+                "/updateprofile - Обновить/изменить данные профиля.\n\n" \
+                "*Управление направлениями*\n" \
+                "/showuniversities - Показать доступные университеты\n" \
+                "/showmydirections - Показать мои направления!\n" \
+                "/editdirections - изменить список направлений\n\n" \
+                "*Другое*\n" \
+                "/addreview  - оставить отзыв\n" \
+                "/managesubscribe - настроить подписку на обновления\n" \
+                "/pay - получить полную версию\n" \
+                "/terms - условия и положения приобритения полной версии\n" \
+
 
 
 class States(Enum):
@@ -108,12 +126,3 @@ def direction_filter(data):
             return False
     except:
         return False
-
-
-
-
-
-
-
-
-

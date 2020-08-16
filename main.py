@@ -33,31 +33,13 @@ def send_welcome(message):
 # ------- get help --------
 @bot.message_handler(commands=['help'])
 def ask_help_command(message):
-    text = "*Вот список доступных команд*\n" \
-            "/start - Запустить бота, поехали!\n" \
-            "/help - Спросить, что ты умеешь?\n" \
-            "/register - Зарегистрироваться.\n" \
-            "/updateprofile - Обновить/изменить данные профиля.\n" \
-            "/showuniversities - Показать доступные университеты\n" \
-            "/showmydirections - Показать мои направления!\n" \
-            "/editdirections - изменить список направлений\n" \
-            "/pay - получить полную версию\n" \
-            "/subscribe - подписаться на обновления\n"
+    text = config.COMMANDS_LIST
     bot.send_message(message.chat.id, text=text, parse_mode='Markdown')
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'help')
 def ask_help(call):
-    text = "*Вот список доступных команд*\n" \
-           "/start - Запустить бота, поехали!\n" \
-           "/help - Спросить, что ты умеешь?\n" \
-           "/register - Зарегистрироваться.\n" \
-           "/updateprofile - Обновить/изменить данные профиля.\n" \
-           "/showdmyirections - Показать доступные университеты\n" \
-           "/showmydirections - Показать мои направления!\n" \
-           "/editdirections - изменить список направлений\n" \
-           "/pay - получить полную версию\n" \
-           "/subscribe - подписаться на обновления\n"
+    text = config.COMMANDS_LIST
     bot.send_message(call.message.chat.id, text=text, parse_mode='Markdown')
 
 
@@ -304,7 +286,7 @@ def show_directions(call):
 def show_direction(call):
     dr_id = int(re.match(r'\d{,}[1-9]', call.data).group())
     bot.answer_callback_query(call.id, "Ответ получен, загружаем данные!")
-    if user.get_user_type(call.message.chat.id) in config.ACCESS_LEVEL_2:
+    if user.get_user_type(call.message.chat.id) in config.ACCESS_LEVEL_3:
 
         ans = user.update_directions(call.message.chat.id, dr_id)
         if ans == 2:
@@ -335,7 +317,7 @@ def show_direction(call):
 
 @bot.message_handler(commands=['showmydirections'])
 def add_university(message):
-    if user.get_user_type(message.chat.id) in config.ACCESS_LEVEL_3:
+    if user.get_user_type(message.chat.id) in config.ACCESS_LEVEL_4:
 
         ans = config.finished_registration(message.chat.id)
         if ans is not None:
@@ -350,7 +332,7 @@ def add_university(message):
         bot.send_message(chat_id=message.chat.id, text=text)
 
 
-# ------- show my directions --------
+# ------- show my directions, edit list of my directions --------
 def show_user_directions(message):
     ans = config.finished_registration(message.chat.id)
     if user.is_new(message.chat.id) or ans is not None:
@@ -367,9 +349,81 @@ def show_user_directions(message):
             bot.send_message(message.chat.id, text=text, parse_mode='Markdown')
 
 
+def _get_choice_text(count, text_msg):
+    text = text_msg
+    if count == 1:
+        text = text.format(str(count) + ' направление')
+    elif 0 < count < 5:
+        text = text.format(str(count) + ' направления')
+    else:
+        text = text.format(str(count) + ' направлений')
+
+    return text
+
+
+def send_directions_edit_list(chat_id, text_btn, text_msg, message_id=None,
+                              notify='', clb_btn='delete_', btn1='Отмена', ckb1='not_change_'):
+    if clb_btn == 'remove_notify_':
+        directions = user.get_notify_directions(chat_id)
+    else:
+        directions = user.get_all_user_directions(chat_id)
+    markup = InlineKeyboardMarkup()
+    for direction in directions:
+        text = "{}. {}. {}".format(direction[0], direction[1], direction[2])
+        callback = notify+"{}_direction".format(direction[3])
+        markup.add(InlineKeyboardButton(text=text, callback_data=callback))
+    markup.add(InlineKeyboardButton(text=text_btn, callback_data=clb_btn+'directions'))
+    markup.add(InlineKeyboardButton(text=btn1, callback_data=ckb1+'directions'))
+    if message_id is not None:
+        bot.edit_message_text(chat_id=chat_id, message_id=message_id,
+                              text=text_msg, reply_markup=markup, parse_mode='Markdown')
+    else:
+        bot.send_message(chat_id=chat_id, text=text_msg, reply_markup=markup, parse_mode='Markdown')
+
+
+def send_marked_direction_list(call, text_msg):
+    markup = InlineKeyboardMarkup()
+    count = 0
+    for obj in call.message.json['reply_markup']['inline_keyboard']:
+        if call.data == obj[0]['callback_data']:
+            text = '✔️' + obj[0]['text']
+            callback = 'mark_' + obj[0]['callback_data']
+            count += 1
+            markup.add(InlineKeyboardButton(text=text, callback_data=callback))
+
+        else:
+            markup.add(InlineKeyboardButton(text=obj[0]['text'], callback_data=obj[0]['callback_data']))
+
+        if 'mark' == obj[0]['callback_data'][:4]:
+            count += 1
+
+    text = _get_choice_text(count, text_msg)
+    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                          text=text, reply_markup=markup, parse_mode='Markdown')
+
+
+def send_unmarked_direction_lis(call, text_msg):
+    markup = InlineKeyboardMarkup()
+    count = 0
+    for obj in call.message.json['reply_markup']['inline_keyboard']:
+        if call.data == obj[0]['callback_data']:
+            text = obj[0]['text'][1:]
+            callback = obj[0]['callback_data'][5:]
+            count -= 1
+            markup.add(InlineKeyboardButton(text=text, callback_data=callback))
+        else:
+            markup.add(InlineKeyboardButton(text=obj[0]['text'], callback_data=obj[0]['callback_data']))
+        if 'mark' == obj[0]['callback_data'][:4]:
+            count += 1
+
+    text = _get_choice_text(count, text_msg)
+    bot.edit_message_text(chat_id=call.message.chat.id, text=text, message_id=call.message.message_id,
+                          reply_markup=markup, parse_mode='Markdown')
+
+
 @bot.message_handler(func=lambda message: config.direction_filter(message.text))
 def get_direction_info(message):
-    if user.get_user_type(message.chat.id) in config.ACCESS_LEVEL_2:
+    if user.get_user_type(message.chat.id) in config.ACCESS_LEVEL_3:
         ans = config.finished_registration(message.chat.id)
         if user.is_new(message.chat.id) or ans is not None:
             bot.send_message(message.chat.id, text=ans)
@@ -391,24 +445,17 @@ def get_direction_info(message):
         bot.send_message(chat_id=message.chat.id, text=text)
 
 
-# ------- edit list of my directions --------
 @bot.message_handler(commands=['editdirections'])
 def edit_directions(message):
-    if user.get_user_type(message.chat.id) in config.ACCESS_LEVEL_3:
+    if user.get_user_type(message.chat.id) in config.ACCESS_LEVEL_4:
 
         ans = config.finished_registration(message.chat.id)
         if user.is_new(message.chat.id) or ans is not None:
             bot.send_message(message.chat.id, text=ans)
         else:
-            directions = user.get_all_user_directions(message.chat.id)
-            markup = InlineKeyboardMarkup()
-            for direction in directions:
-                text = "{}. {}. {}".format(direction[0], direction[1], direction[2])
-                callback = "{}_direction".format(direction[3])
-                markup.add(InlineKeyboardButton(text=text, callback_data=callback))
-            markup.add(InlineKeyboardButton(text='Удалить🗑', callback_data='delete_directions'))
-            text = "Выбирете те направления из списка, которые хотите удалить\nЗатем нажмите *Удалить🗑*"
-            bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
+            text_btn = 'Удалить🗑'
+            text_msg = "Выбирете те направления из списка, которые хотите удалить\nЗатем нажмите *Удалить*"
+            send_directions_edit_list(message.chat.id, text_btn, text_msg)
     else:
         text = 'Для того, чтобы редактировать направления, вам необходимо автаризироваться.\n' \
                'Нажмите /register, получить доступ к этой возможности'
@@ -417,62 +464,16 @@ def edit_directions(message):
 
 @bot.callback_query_handler(func=lambda call: re.match(r'\d{,}[1-9]_direction', call.data) is not None)
 def mark_direction(call):
-    markup = InlineKeyboardMarkup()
-    count = 0
-    for obj in call.message.json['reply_markup']['inline_keyboard']:
-        if call.data == obj[0]['callback_data']:
-            text = '✔️' + obj[0]['text']
-            callback = 'mark_' + obj[0]['callback_data']
-            count += 1
-            markup.add(InlineKeyboardButton(text=text, callback_data=callback))
-
-        else:
-            markup.add(InlineKeyboardButton(text=obj[0]['text'], callback_data=obj[0]['callback_data']))
-
-        if 'mark' == obj[0]['callback_data'][:4]:
-            count += 1
-
     bot.answer_callback_query(call.id, "Изменения сохранены!")
-
-    text = "*Вы выбралий {}*\nНажмите *Удалить* чтобы избавиться от них"
-    if count == 1:
-        text = text.format(str(count) + ' направление')
-    elif 0 < count < 5:
-        text = text.format(str(count) + ' направления')
-    else:
-        text = text.format(str(count) + ' направлений')
-
-    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                          text=text, reply_markup=markup, parse_mode='Markdown')
+    text_msg = "*Вы выбралий {}*\nНажмите *Удалить* чтобы избавиться от них"
+    send_marked_direction_list(call, text_msg)
 
 
 @bot.callback_query_handler(func=lambda call: re.match(r'mark_\d{,}[1-9]_direction', call.data) is not None)
 def unmark_direction(call):
-    markup = InlineKeyboardMarkup()
-    count = 0
-    for obj in call.message.json['reply_markup']['inline_keyboard']:
-        if call.data == obj[0]['callback_data']:
-            text = obj[0]['text'][1:]
-            callback = obj[0]['callback_data'][5:]
-            count -= 1
-            markup.add(InlineKeyboardButton(text=text, callback_data=callback))
-        else:
-            markup.add(InlineKeyboardButton(text=obj[0]['text'], callback_data=obj[0]['callback_data']))
-        if 'mark' == obj[0]['callback_data'][:4]:
-            count += 1
-
     bot.answer_callback_query(call.id, "Изменения сохранены!")
-
-    text = "*Вы выбралий {}*\nНажмите *Удалить* чтобы избавиться от них"
-    if count == 1:
-        text = text.format(str(count) + ' направление')
-    elif 0 < count < 5:
-        text = text.format(str(count) + ' направления')
-    else:
-        text = text.format(str(count) + ' направлений')
-
-    bot.edit_message_text(chat_id=call.message.chat.id, text=text, message_id=call.message.message_id,
-                          reply_markup=markup, parse_mode='Markdown')
+    text_msg = "*Вы выбралий {}*\nНажмите *Удалить* чтобы избавиться от них"
+    send_unmarked_direction_lis(call, text_msg)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'delete_directions')
@@ -489,14 +490,8 @@ def delete_directions(call):
 
     if user.delete_directions(call.message.chat.id, directions):
         bot.answer_callback_query(call.id, "Изменения сохранены!")
-        text = "*Вы удалили {}*\nВведите /showmydirections, чтобы посмотреть обновленный список"
-        if count == 1:
-            text = text.format(str(count) + ' направление')
-        elif 0 < count < 5:
-            text = text.format(str(count) + ' направления')
-        else:
-            text = text.format(str(count) + ' направлений')
-
+        text_msg = "*Вы удалили {}*\nВведите /showmydirections, чтобы посмотреть обновленный список"
+        text = _get_choice_text(count, text_msg)
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
                               text=text, parse_mode='Markdown')
     else:
@@ -506,8 +501,13 @@ def delete_directions(call):
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text)
 
 
-# ------- add to waiting for updates--------
+@bot.callback_query_handler(func=lambda call: call.data == 'not_change_directions')
+def not_change_directions(call):
+    text = "Редактирование отменино"
+    bot.edit_message_text(chat_id=call.message.chat.id, text=text, message_id=call.message.message_id)
 
+
+# ------- add to waiting for updates--------
 @bot.callback_query_handler(func=lambda call: call.data == 'request_for_updates')
 def add_waiting(call):
     text = 'Напишите, пожайлуста, ваш *университет/факультет/направление*, которое вы не нашли\n' \
@@ -542,25 +542,22 @@ def ask_service_review(chat_id, text=None):
     for i in range(len(icons)):
         data += (InlineKeyboardButton(text=icons[i], callback_data='star_' + str(i)),)
     markup.row(*data)
-    markup.add(InlineKeyboardButton(text='Написать отзыв', callback_data='write_review'))
     bot.send_message(chat_id, text, reply_markup=markup)
 
 
-# as a test
-@bot.message_handler(commands=['test'])
+# as a begin
+@bot.message_handler(commands=['addreview'])
 def get_direction_info(message):
-    ask_service_review(message.chat.id)
-
-
-@bot.callback_query_handler(func=lambda call: call.data == 'write_review')
-def add_waiting(call):
-    text = 'Пожайлуста, напишите а затем отправте мне ваш отзыв'
-    dbworker.set_state(call.message.chat.id, config.States.S_REVIEW.value)
-    bot.send_message(chat_id=call.message.chat.id, text=text, parse_mode='Markdown')
+    if user.get_user_type(message.chat.id) in config.ACCESS_LEVEL_4:
+        ask_service_review(message.chat.id)
+    else:
+        text = 'Простите, у вас нету прав доступа к этой функции\n' \
+               'Пройдите идентификацию чтобы получить доступ к этой функции.\n/register'
+        bot.send_message(chat_id=message.chat.id, text=text)
 
 
 @bot.callback_query_handler(func=lambda call: re.match(r'star_[0-9]', call.data) is not None)
-def add_waiting(call):
+def add_mark(call):
     mark = int(call.data.split('_')[1])
 
     count = -1
@@ -579,7 +576,8 @@ def add_waiting(call):
                 data += (InlineKeyboardButton(text=icons[i], callback_data='star_' + str(i)),)
 
         markup.row(*data)
-        markup.add(InlineKeyboardButton(text='Написать отзыв', callback_data='write_review'))
+        markup.add(InlineKeyboardButton(text='Сохранить', callback_data='save_review'))
+        markup.add(InlineKeyboardButton(text='Написать текстовый отзыв', callback_data='write_review'))
 
         bot.edit_message_text(chat_id=call.message.chat.id, text='Вы поставили оценку {}/7'.format(mark),
                               message_id=call.message.message_id, reply_markup=markup)
@@ -588,18 +586,142 @@ def add_waiting(call):
         bot.answer_callback_query(call.id, 'Данные успешно получены!')
 
 
+@bot.callback_query_handler(func=lambda call: call.data == 'save_review')
+def save_rev(call):
+    text = 'Спасибо, что поделились!\n' \
+           'Мы обязательно учтем ваше мнение!'
+    bot.edit_message_text(chat_id=call.message.chat.id, text=text, message_id=call.message.message_id)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'write_review')
+def add_writing(call):
+    text = 'Пожайлуста, напишите а затем отправте мне ваш отзыв'
+    dbworker.set_state(call.message.chat.id, config.States.S_REVIEW.value)
+    bot.edit_message_text(chat_id=call.message.chat.id, text=text,
+                          message_id=call.message.message_id, parse_mode='Markdown')
+
+
 @bot.message_handler(func=lambda message: config.review_filter(message.chat.id))
 def save_review(message):
-    if user.save_review(message.chat.id, text=message.text):
+    if user.save_review(chat_id=message.chat.id, text=message.text):
         text = 'Спасибо, что поделились!\n' \
-               'Мы обязательно учтем все ваш отзыв!'
+               'Мы обязательно учтем ваше мнение!'
     else:
         text = 'Oooppss..\n' \
                'Возникли какие-то проблемы\n' \
                'Попробуйте ввести еще раз, или повторите попытку позже'
 
     dbworker.set_state(message.chat.id, config.States.S_START.value)
-    bot.send_message(chat_id=message.chat.id, text=text, parse_mode='Markdown')
+    bot.send_message(chat_id=message.chat.id, text=text)
+
+
+# ------- menage subscribe --------
+def get_notify_direction_text(call):
+    bot.answer_callback_query(call.id, "Изменения сохранены!")
+    if call.message.json['reply_markup']['inline_keyboard'][-1][0]['callback_data'] == 'add_notify_directions':
+        text_msg = "*Вы выбралий {}*\nНажмите *Добавить* чтобы подписаться на обновления от них"
+    else:
+        text_msg = "*Вы выбралий {}*\nНажмите *Удалить* чтобы не получать больше уведомления от них"
+
+    return text_msg
+
+
+def manage_directions_notify(call, text_msg, action):
+    count = 0
+    names = []
+    for obj in call.message.json['reply_markup']['inline_keyboard']:
+        if 'mark' == obj[0]['callback_data'][:4]:
+            name = obj[0]['text'][2:]
+            print(name)
+            names.append(name)
+            count += 1
+
+    if count == 0:
+        bot.answer_callback_query(call.id, "Ошибка.. Вы не можете удалить пустоту")
+    elif user.manage_directions_notify(call.message.chat.id, names, action):
+        bot.answer_callback_query(call.id, "Изменения сохранены!")
+        text = _get_choice_text(count, text_msg)
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                              text=text, parse_mode='Markdown')
+    else:
+        bot.answer_callback_query(call.id, "Ошибка..")
+        text = 'Произошла какая-то ошибка при изменении данных...\n' \
+               'Попробуйте повторить опирацию /managesubscribe'
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text)
+
+
+@bot.message_handler(commands=['managesubscribe'])
+def subscribe(message):
+    if user.get_user_type(message.chat.id) in config.ACCESS_LEVEL_2:
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton(text='Подписаться на обнавления', callback_data='add_subscription'))
+        markup.add(InlineKeyboardButton(text='Отменить подписку', callback_data='remove_subscription'))
+
+        text = 'Я могу уведомлять вас об изменениях вашей позиции в рейтинговом списке вашего направления\n' \
+               'Выберите _Подписаться на обнавления_ чтобы настроить уведомления\n' \
+               'Если вам не нужны уведомления из некоторых направлений, просто удалите их, выбрав _Отменить подписку_'
+        bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
+
+    else:
+        text = 'Простите, у вас нету прав доступа для использования этой функции\n' \
+               'Пройдите идентификацию (если еще нет), либо оформите подписку на сервис, для доступа к этой функции.'
+        bot.send_message(chat_id=message.chat.id, text=text)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'notify_back_directions')
+def notify_back_directions(call):
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton(text='Подписаться на обнавления', callback_data='add_subscription'))
+    markup.add(InlineKeyboardButton(text='Отменить подписку', callback_data='remove_subscription'))
+
+    text = 'Я могу уведомлять вас об изменениях вашей позиции в рейтинговом списке вашего направления\n' \
+            'Выберите _Подписаться на обнавления_ чтобы настроить уведомления\n' \
+            'Если вам не нужны уведомления из некоторых направлений, просто удалите их, выбрав _Отменить подписку_'
+    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                          text=text, reply_markup=markup, parse_mode='Markdown')
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'add_subscription')
+def add_subscription(call):
+    text_btn = 'Добавить✍️'
+    text_msg = "Выбирете те направления из списка, по которым вы хотите получать уведомления\nЗатем нажмите *Добавить*"
+    send_directions_edit_list(call.message.chat.id, text_btn, text_msg, call.message.message_id,
+                              'notify_', 'add_notify_', 'Назад', 'notify_back_')
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'remove_subscription')
+def remove_subscription(call):
+    text_btn = 'Удалить🗑'
+    text_msg = "Выбирете те направления из списка, по которым не хотите получать уведомления\nЗатем нажмите *Удалить*"
+    send_directions_edit_list(call.message.chat.id, text_btn, text_msg, call.message.message_id,
+                              'notify_', 'remove_notify_', 'Назад', 'notify_back_')
+
+
+@bot.callback_query_handler(func=lambda call: re.match(r'notify_\d{,}[1-9]_direction', call.data) is not None)
+def mark_direction(call):
+    text_msg = get_notify_direction_text(call)
+    send_marked_direction_list(call, text_msg)
+
+
+@bot.callback_query_handler(func=lambda call: re.match(r'mark_notify_\d{,}[1-9]_direction', call.data) is not None)
+def unmark_direction(call):
+    text_msg = get_notify_direction_text(call)
+    send_unmarked_direction_lis(call, text_msg)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'remove_notify_directions')
+def remove_notify_directions(call):
+    text_msg = "*Вы убрали из рассылки {}*\n"
+    action = 'delete'
+    manage_directions_notify(call, text_msg, action)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'add_notify_directions')
+def add_notify_directions(call):
+    text_msg = "*Вы подписались на {}*\n"
+    action = 'add'
+    manage_directions_notify(call, text_msg, action)
+
 
 
 bot.infinity_polling()

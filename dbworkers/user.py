@@ -2,6 +2,8 @@ import psycopg2
 import datetime
 from psycopg2 import sql
 
+import parsers
+
 
 DNS = "dbname=Application user=kuand"
 
@@ -52,11 +54,12 @@ def update_birthday(message):
 
 def update_email(message):
     email = message.text
+    user_default_status = 'user:active'
     try:
         with psycopg2.connect(DNS) as conn:
             with conn.cursor() as cur:
                 cur.execute("UPDATE users SET  email = %s, user_type = %s WHERE chat_id = %s",
-                            (email, 'user:unpaid', message.chat.id))
+                            (email, user_default_status, message.chat.id))
                 conn.commit()
 
     except Exception as e:
@@ -303,15 +306,64 @@ def save_review(chat_id, table='service_reviews', text=None, mark=None):
     try:
         with psycopg2.connect(DNS) as conn:
             with conn.cursor() as cur:
-                if text is None:
-                    sql = "INSERT INTO {} (chat_id, mark, add_date) VALUES (%s, %s, %s);".format(table)
-                    cur.execute(sql, (chat_id, mark, datetime.datetime.now()))
-                else:
-                    sql = "INSERT INTO {} (chat_id, text, add_date) VALUES (%s, %s, %s);".format(table)
-                    cur.execute(sql, (chat_id, text, datetime.datetime.now()))
+                if mark is not None:
+                    sql = "SELECT id FROM {} WHERE chat_id = %s and add_date = %s;".format(table)
+                    cur.execute(sql, (chat_id, datetime.date.today()))
+                    ans = cur.fetchone()
+                    if ans is None:
+                        sql = "INSERT INTO {} (chat_id, mark, add_date) VALUES (%s, %s, %s);".format(table)
+                        cur.execute(sql, (chat_id, mark, datetime.date.today()))
+                    else:
+                        sql = "UPDATE {} SET mark = %s " \
+                              "WHERE chat_id = %s and add_date = %s;".format(table)
+                        cur.execute(sql, (mark, chat_id, datetime.date.today()))
 
+                else:
+                    sql = "UPDATE {} SET text = %s " \
+                          "WHERE chat_id = %s and add_date = %s;".format(table)
+                    cur.execute(sql, (text, chat_id, datetime.date.today()))
+
+                conn.commit()
                 return True
 
     except Exception as e:
         print(e)
         return False
+
+
+def manage_directions_notify(chat_id, names, todo='add'):
+    try:
+        with psycopg2.connect(DNS) as conn:
+            with conn.cursor() as cur:
+                if todo == 'add':
+                    sql = "INSERT INTO states (chat_id, link, full_name, current_state) " \
+                          "VALUES (%s, %s, %s, %s);"
+                    for name in names:
+                        un_name, dp_name, dr_name = name.split('. ')
+                        link = get_direction(un_name, dp_name, dr_name, chat_id)[-1]
+                        current_state = parsers.get_current_state(name, link)
+                        cur.execute(sql, (chat_id, link, name, current_state))
+                else:
+                    sql = "DELETE FROM states WHERE chat_id = %s and full_name in %s"
+                    cur.execute(sql, (chat_id, names))
+                conn.commit()
+                return True
+
+    except Exception as e:
+        print(e)
+        print('there')
+        return False
+
+
+def get_notify_directions(chat_id):
+    try:
+        with psycopg2.connect(DNS) as conn:
+            with conn.cursor() as cur:
+                sql = "SELECT full_name FROM states WHERE chat_id = %(int)s;"
+                cur.execute(sql, {'int': chat_id})
+                ans = [tuple(num[0].split('. ')) + (1,) for num in cur.fetchall()]
+                return ans
+
+    except Exception as e:
+        print(e)
+        return None
