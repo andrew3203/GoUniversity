@@ -97,7 +97,7 @@ def get_user_data(chat_id):
                 cur.execute("SELECT * FROM users WHERE chat_id = %(int)s;", {'int': chat_id})
                 fet = cur.fetchone()
                 data = {
-                    'first_name': fet[0],
+                    'first_name': fet[2],
                 }
                 return data
     except Exception as e:

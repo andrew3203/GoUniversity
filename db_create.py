@@ -24,24 +24,24 @@ CREATE TABLE users
     ege_score integer,
     waiting_for_updates boolean,
     received_code character varying(50),
-    shared_code character varying(50)
+    shared_code character varying(50),
     directions integer[],
     signed_consent boolean DEFAULT false,
     price integer,
     CONSTRAINT users_chat_id_key UNIQUE (chat_id)
-)
+);
 """
 
 create_universities = """
 CREATE TABLE universities
 (
     id SERIAL PRIMARY KEY,
-    name character varying(20) PRIMARY KEY,
+    name character varying(20),
     full_name character varying(70),
     site character varying(250),
     CONSTRAINT universities_id_key UNIQUE (id),
     CONSTRAINT universities_short_name_key UNIQUE (name)
-)
+);
 """
 
 create_departments = """
@@ -54,11 +54,9 @@ CREATE TABLE departments
     un_id integer,
     CONSTRAINT university FOREIGN KEY (un_id)
         REFERENCES universities (id) MATCH SIMPLE
-        ON UPDATE NO ACTION
+        ON UPDATE CASCADE 
         ON DELETE NO ACTION
-)
-
-
+);
 """
 
 create_directions = """
@@ -76,7 +74,7 @@ CREATE TABLE directions
         REFERENCES departments (id) MATCH SIMPLE
         ON UPDATE CASCADE 
         ON DELETE NO ACTION
-)
+);
 """
 
 create_reviews1 = """
@@ -92,7 +90,7 @@ CREATE TABLE education_reviews
         REFERENCES universities (id) MATCH SIMPLE
         ON UPDATE CASCADE 
         ON DELETE NO ACTION
-)
+);
 """
 
 create_reviews2 = """
@@ -103,7 +101,7 @@ CREATE TABLE service_reviews
     text character varying(500),
     mark integer,
     add_date date
-)
+);
 """
 
 create_problems = """
@@ -114,7 +112,7 @@ CREATE TABLE problems
     date_add date,
     need_update boolean DEFAULT false,
     chat_id integer
-)
+);
 """
 
 create_payments = """
@@ -125,7 +123,7 @@ CREATE TABLE payments
     chat_id integer,
     pay_date date,
     license_period date
-)
+);
 """
 
 create_states = """
@@ -137,7 +135,7 @@ CREATE TABLE states
     full_name character varying(150),
     current_state integer,
     CONSTRAINT states_full_name_key UNIQUE (full_name)
-)
+);
 """
 commands = [
     create_db,
