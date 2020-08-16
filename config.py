@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
-
+import os
 from enum import Enum
 from dbworkers import dbworker
 
-TOKEN = '1232696304:AAHjcTwO3oelfj6fWAmg1pcADKG081jlqpY'
+TOKEN = os.environ['TOKEN']
+provider_token = os.environ['PROVIDER_TOKEN']
+DATABASE_URL = os.environ['DATABASE_URL']
 db_file = "database.vdb"
 
 ACCESS_LEVEL_1 = ['admin']
@@ -27,6 +29,7 @@ COMMANDS_LIST = "*Вот список доступных команд*\n\n" \
                 "/managesubscribe - настроить подписку на обновления\n" \
                 "/buy - получить полную версию\n" \
 
+REQUEST_PER_DAY_AMOUNT = 15
 
 
 class States(Enum):

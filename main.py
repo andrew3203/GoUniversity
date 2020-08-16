@@ -3,11 +3,8 @@ from telebot import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, LabeledPrice, ShippingOption
 
 import re
-from dbworkers import user, dbworker
+from dbworkers import postgre, dbworker
 import config
-
-
-provider_token = '381764678:TEST:18656'
 
 prices = [LabeledPrice(label='Полный доступ к сервису', amount=17500), LabeledPrice('Налоговые сборы', 1000)]
 
@@ -16,8 +13,8 @@ bot = telebot.TeleBot(config.TOKEN)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    if not user.is_new(message.chat.id):
-        name = user.get_user_data(message.chat.id)['first_name']
+    if not postgre.is_new(message.chat.id):
+        name = postgre.get_user_data(message.chat.id)['first_name']
     elif not message.from_user.first_name == '':
         name = message.from_user.first_name
     else:
@@ -69,7 +66,7 @@ def make_consent(call):
            "Нажмите: _Ввести данные_, чтобы заполнить необходимую информацию\n" \
            "Старайтесь вводить данные без лишних символов:)"
     if call.data == "agreed":
-        user.sign_consent(call.message.chat.id)
+        postgre.sign_consent(call.message.chat.id)
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("Даю согласие✅", callback_data="disagree"),
                    InlineKeyboardButton("Прочитать согласие", callback_data='send_consent'))
@@ -92,7 +89,7 @@ def make_consent(call):
 # ------- register/update profile --------
 @bot.message_handler(commands=['register', 'updateprofile'])
 def profile_register_command(message):
-    if user.check_sign_consent:
+    if postgre.check_sign_consent:
         dbworker.set_state(message.chat.id, config.States.S_NAME.value)
         bot.send_message(message.chat.id, text=config.States.S_NAME_MESSAGE.value)
     else:
@@ -108,7 +105,7 @@ def profile_register(call):
 # NAME
 @bot.message_handler(func=lambda message: config.name_filter(message.chat.id))
 def user_entering_name(message):
-    if user.update_names(message, 'first_name'):
+    if postgre.update_names(message, 'first_name'):
         bot.send_message(message.chat.id, text=config.States.S_LAST_NAME_MESSAGE.value)
         dbworker.set_state(message.chat.id, config.States.S_LAST_NAME.value)
     else:
@@ -119,7 +116,7 @@ def user_entering_name(message):
 # LAST_NAME
 @bot.message_handler(func=lambda message: config.lastname_filter(message.chat.id))
 def user_entering_last_name(message):
-    if user.update_names(message, 'last_name'):
+    if postgre.update_names(message, 'last_name'):
         bot.send_message(message.chat.id, text=config.States.S_MIDDLE_NAME_MESSAGE.value)
         dbworker.set_state(message.chat.id, config.States.S_MIDDLE_NAME.value)
     else:
@@ -130,7 +127,7 @@ def user_entering_last_name(message):
 # MIDDLE_NAME
 @bot.message_handler(func=lambda message: config.middlename_filter(message.chat.id))
 def user_entering_middle_name(message):
-    if user.update_names(message, 'middle_name'):
+    if postgre.update_names(message, 'middle_name'):
         bot.send_message(message.chat.id, text=config.States.S_BIRTHDAY_MESSAGE.value)
         dbworker.set_state(message.chat.id, config.States.S_BIRTHDAY.value)
     else:
@@ -141,7 +138,7 @@ def user_entering_middle_name(message):
 # BIRTHDAY
 @bot.message_handler(func=lambda message: config.birthday_filter(message.chat.id))
 def user_entering_birthday(message):
-    if user.update_birthday(message):
+    if postgre.update_birthday(message):
         bot.send_message(message.chat.id, text=config.States.S_EMAIL_MESSAGE.value)
         dbworker.set_state(message.chat.id, config.States.S_EMAIL.value)
     else:
@@ -153,7 +150,7 @@ def user_entering_birthday(message):
 @bot.message_handler(func=lambda message: config.email_filter(message.chat.id))
 def user_entering_email(message):
     try:
-        if message.entities[0].type == 'email' and user.update_email(message):
+        if message.entities[0].type == 'email' and postgre.update_email(message):
             bot.send_message(message.chat.id, text=config.States.S_FINISH_MESSAGE.value, parse_mode='Markdown')
             dbworker.set_state(message.chat.id, config.States.S_START.value)
 
@@ -171,7 +168,7 @@ def user_entering_email(message):
 
 def get_markup_for_obj(table, val_where, val, un_id=None):
     markup = InlineKeyboardMarkup()
-    objects = user.get_data_from(table, val_where, val)
+    objects = postgre.get_data_from(table, val_where, val)
     for obj in objects:
         callback = str(obj[0]) + "_" + table
         markup.add(InlineKeyboardButton(obj[1], callback_data=callback))
@@ -195,7 +192,7 @@ def get_markup_for_obj(table, val_where, val, un_id=None):
 
 
 def get_user_directions_keyboard(chat_id):
-    directions = user.get_all_user_directions(chat_id)
+    directions = postgre.get_all_user_directions(chat_id)
     if not len(directions) == 0:
         markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
         for direction in directions:
@@ -207,7 +204,7 @@ def get_user_directions_keyboard(chat_id):
 
 
 def get_direction_data(un_name, dp_name, dr_name, chat_id):
-    ans = user.get_direction(un_name, dp_name, dr_name, chat_id)
+    ans = postgre.get_direction(un_name, dp_name, dr_name, chat_id)
     if ans is not None:
 
         text = "*Направление {}, {} {}*\n" \
@@ -251,7 +248,7 @@ def show_universities_callback(call):
 def show_department_callback(call):
     bot.answer_callback_query(call.id, "Ответ получен, загружаем данные!")
     un_id = call.data.split('#')[1]
-    objects = user.get_departments_by_un_id(int(un_id))
+    objects = postgre.get_departments_by_un_id(int(un_id))
     markup = InlineKeyboardMarkup()
     if objects is not None:
         for obj in objects:
@@ -291,9 +288,9 @@ def show_directions(call):
 def show_direction(call):
     dr_id = int(re.match(r'\d{,}[1-9]', call.data).group())
     bot.answer_callback_query(call.id, "Ответ получен, загружаем данные!")
-    if user.get_user_type(call.message.chat.id) in config.ACCESS_LEVEL_3:
+    if postgre.get_user_type(call.message.chat.id) in config.ACCESS_LEVEL_3:
 
-        ans = user.update_directions(call.message.chat.id, dr_id)
+        ans = postgre.update_directions(call.message.chat.id, dr_id)
         if ans == 2:
             bot.send_message(call.message.chat.id, text='Вы уже добавили себе это направление')
             text = 'Если вы хотите посмотреть свою позицию по этому направлению\n' \
@@ -315,14 +312,15 @@ def show_direction(call):
             bot.send_message(call.message.chat.id, text=text)
     else:
         # либо заплатить
-        text = 'Для того, чтобы добавить это направления, вам необходимо автаризироваться.\n' \
-               'Нажмите /register, получить доступ к этой возможности'
+        text = 'Для доступа к информации Вам нужно снять с аккаунта ограничение по ' \
+               'колличесву запросов в день.\n' \
+               'Для этого оплатите полный доступ к сервису /buy, либо дождитесь следующего дня'
         bot.send_message(chat_id=call.message.chat.id, text=text)
 
 
 @bot.message_handler(commands=['showmydirections'])
 def add_university(message):
-    if user.get_user_type(message.chat.id) in config.ACCESS_LEVEL_4:
+    if postgre.get_user_type(message.chat.id) in config.ACCESS_LEVEL_4:
 
         ans = config.finished_registration(message.chat.id)
         if ans is not None:
@@ -333,14 +331,14 @@ def add_university(message):
             bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
     else:
         text = 'Для того, чтобы посмотреть направления, вам необходимо автаризироваться.\n' \
-               'Нажмите /register, получить доступ к этой возможности'
+               'Нажмите /register, чтобы получить доступ к этой возможности'
         bot.send_message(chat_id=message.chat.id, text=text)
 
 
 # ------- show my directions, edit list of my directions --------
 def show_user_directions(message):
     ans = config.finished_registration(message.chat.id)
-    if user.is_new(message.chat.id) or ans is not None:
+    if postgre.is_new(message.chat.id) or ans is not None:
         bot.send_message(message.chat.id, text=ans)
     else:
         markup = get_user_directions_keyboard(message.chat.id)
@@ -369,11 +367,11 @@ def _get_choice_text(count, text_msg):
 def send_directions_edit_list(chat_id, text_btn, text_msg, message_id=None,
                               notify='', clb_btn='delete_', btn1='Отмена', ckb1='not_change_'):
     if clb_btn == 'remove_notify_':
-        directions = user.get_notify_directions(chat_id)
+        directions = postgre.get_notify_directions(chat_id)
     elif clb_btn == 'add_notify_':
-        directions = user.get_available_notify_directions(chat_id)
+        directions = postgre.get_available_notify_directions(chat_id)
     else:
-        directions = user.get_all_user_directions(chat_id)
+        directions = postgre.get_all_user_directions(chat_id)
     markup = InlineKeyboardMarkup()
     for direction in directions:
         text = "{}. {}. {}".format(direction[0], direction[1], direction[2])
@@ -430,34 +428,42 @@ def send_unmarked_direction_lis(call, text_msg):
 
 @bot.message_handler(func=lambda message: config.direction_filter(message.text))
 def get_direction_info(message):
-    if user.get_user_type(message.chat.id) in config.ACCESS_LEVEL_3:
+    if postgre.get_user_type(message.chat.id) in config.ACCESS_LEVEL_3:
         ans = config.finished_registration(message.chat.id)
-        if user.is_new(message.chat.id) or ans is not None:
+        if postgre.is_new(message.chat.id) or ans is not None:
             bot.send_message(message.chat.id, text=ans)
         else:
-            a, b, c = message.text.split('. ')
-            info = get_direction_data(a, b, c, message.chat.id)
-            if info is not None:
-                bot.send_message(chat_id=message.chat.id, text=info[0], parse_mode='Markdown')
-                markup = InlineKeyboardMarkup()
-                markup.add(InlineKeyboardButton('Откыть сайт', url=info[2], callback_data='open_site'))
-                bot.send_message(chat_id=message.chat.id, text=info[1], parse_mode='Markdown', reply_markup=markup)
+            if postgre.request_count(message.chat.id):
+                a, b, c = message.text.split('. ')
+                info = get_direction_data(a, b, c, message.chat.id)
+                if info is not None:
+                    bot.send_message(chat_id=message.chat.id, text=info[0], parse_mode='Markdown')
+                    markup = InlineKeyboardMarkup()
+                    markup.add(InlineKeyboardButton('Откыть сайт', url=info[2], callback_data='open_site'))
+                    bot.send_message(chat_id=message.chat.id, text=info[1], parse_mode='Markdown', reply_markup=markup)
+                else:
+                    text = 'Вероятно что-то пошло не так, попробуйте повторить запрос'
+                    bot.send_message(message.chat.id, text=text)
             else:
-                text = 'Вероятно что-то пошло не так, попробуйте повторить запрос'
+                text = 'Увы, вы привысили колличесво бесплатных запросов на сегодня (15)\n' \
+                       'Чтобы неограниченно использовать возможности сервиса, перейдите на полную версию /buy, ' \
+                       'либо дождитесь следующего дня'
                 bot.send_message(message.chat.id, text=text)
+
     else:
-        # либо заплатить
-        text = 'Для того, чтобы посмотреть это направление, вам необходимо автаризироваться.\n' \
-               'Нажмите /register, получить доступ к этой возможности'
+        text = 'Увы, вы привысили колличесво бесплатных запросов на сегодня (15)\n' \
+               'Чтобы неограниченно использовать возможности сервиса, перейдите на полную версию /buy, ' \
+               'либо дождитесь следующего дня'
+
         bot.send_message(chat_id=message.chat.id, text=text)
 
 
 @bot.message_handler(commands=['editdirections'])
 def edit_directions(message):
-    if user.get_user_type(message.chat.id) in config.ACCESS_LEVEL_4:
+    if postgre.get_user_type(message.chat.id) in config.ACCESS_LEVEL_4:
 
         ans = config.finished_registration(message.chat.id)
-        if user.is_new(message.chat.id) or ans is not None:
+        if postgre.is_new(message.chat.id) or ans is not None:
             bot.send_message(message.chat.id, text=ans)
         else:
             text_btn = 'Удалить🗑'
@@ -495,7 +501,7 @@ def delete_directions(call):
         if 'mark' == obj[0]['callback_data'][:4]:
             count += 1
 
-    if user.delete_directions(call.message.chat.id, directions):
+    if postgre.delete_directions(call.message.chat.id, directions):
         bot.answer_callback_query(call.id, "Изменения сохранены!")
         text_msg = "*Вы удалили {}*\nВведите /showmydirections, чтобы посмотреть обновленный список"
         text = _get_choice_text(count, text_msg)
@@ -526,7 +532,7 @@ def add_waiting(call):
 
 @bot.message_handler(func=lambda message: config.problem_filter(message.chat.id))
 def get_direction_info(message):
-    if user.save_user_problem(message.chat.id, message.text):
+    if postgre.save_user_problem(message.chat.id, message.text):
         text = 'Спасибо, что поделились этой проблемой!\n' \
                'Мы обязательно исправим все в ближйшее время!'
     else:
@@ -555,7 +561,7 @@ def ask_service_review(chat_id, text=None):
 # as a begin
 @bot.message_handler(commands=['addreview'])
 def get_direction_info(message):
-    if user.get_user_type(message.chat.id) in config.ACCESS_LEVEL_4:
+    if postgre.get_user_type(message.chat.id) in config.ACCESS_LEVEL_4:
         ask_service_review(message.chat.id)
     else:
         text = 'Простите, у вас нету прав доступа к этой функции\n' \
@@ -589,7 +595,7 @@ def add_mark(call):
         bot.edit_message_text(chat_id=call.message.chat.id, text='Вы поставили оценку {}/7'.format(mark),
                               message_id=call.message.message_id, reply_markup=markup)
 
-    if user.save_review(call.message.chat.id, mark=mark):
+    if postgre.save_review(call.message.chat.id, mark=mark):
         bot.answer_callback_query(call.id, 'Данные успешно получены!')
 
 
@@ -610,7 +616,7 @@ def add_writing(call):
 
 @bot.message_handler(func=lambda message: config.review_filter(message.chat.id))
 def save_review(message):
-    if user.save_review(chat_id=message.chat.id, text=message.text):
+    if postgre.save_review(chat_id=message.chat.id, text=message.text):
         text = 'Спасибо, что поделились!\n' \
                'Мы обязательно учтем ваше мнение!'
     else:
@@ -645,7 +651,7 @@ def manage_directions_notify(call, text_msg, action):
 
     if count == 0:
         bot.answer_callback_query(call.id, "Ошибка.. Вы не можете удалить пустоту")
-    elif user.manage_directions_notify(call.message.chat.id, names, action):
+    elif postgre.manage_directions_notify(call.message.chat.id, names, action):
         bot.answer_callback_query(call.id, "Изменения сохранены!")
         text = _get_choice_text(count, text_msg)
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
@@ -659,7 +665,7 @@ def manage_directions_notify(call, text_msg, action):
 
 @bot.message_handler(commands=['managesubscribe'])
 def subscribe(message):
-    if user.get_user_type(message.chat.id) in config.ACCESS_LEVEL_2:
+    if postgre.get_user_type(message.chat.id) in config.ACCESS_LEVEL_2:
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton(text='Подписаться на обнавления', callback_data='add_subscription'))
         markup.add(InlineKeyboardButton(text='Отменить подписку', callback_data='remove_subscription'))
@@ -671,7 +677,7 @@ def subscribe(message):
 
     else:
         text = 'Простите, у вас нету прав доступа для использования этой функции\n' \
-               'Пройдите идентификацию (если еще нет), либо оформите подписку на сервис, для доступа к этой функции.'
+               'Чтобы неограниченно использовать возможности сервиса, перейдите на полную версию /buy, '
         bot.send_message(chat_id=message.chat.id, text=text)
 
 
@@ -733,20 +739,26 @@ def add_notify_directions(call):
 # ------- menage subscribe --------
 @bot.message_handler(commands=['buy'])
 def command_pay(message):
-    bot.send_invoice(message.chat.id, title='Полный доступ к сервису',
-                     description='Покупая полный доступ к сервису вы получаете возможность неограниченно проверять свою'
-                                 ' позицию по направлениям и получать уведомления о всех изменениях '
-                                 'в рейтинговых списках. Доступ будет действовть до конца этого года.',
-                     provider_token=provider_token,
-                     currency='rub',
-                     photo_url='http://erkelzaar.tsudao.com/models/perrotta/TIME_MACHINE.jpg',
-                     photo_height=512,  # !=0/None or picture won't be shown
-                     photo_width=512,
-                     photo_size=512,
-                     is_flexible=False,  # True If you need to set up Shipping Fee
-                     prices=prices,
-                     start_parameter='get_full_plan',
-                     invoice_payload='HAPPY FRIDAYS COUPON')
+    if postgre.get_user_type(message.chat.id) in config.ACCESS_LEVEL_4:
+
+        bot.send_invoice(message.chat.id, title='Полный доступ к сервису',
+                         description='Покупая полный доступ к сервису вы получаете возможность неограниченно проверять свою'
+                                     ' позицию по направлениям и получать уведомления о всех изменениях '
+                                     'в рейтинговых списках. Доступ будет действовть до конца этого года.',
+                         provider_token=config.provider_token,
+                         currency='rub',
+                         photo_url='http://erkelzaar.tsudao.com/models/perrotta/TIME_MACHINE.jpg',
+                         photo_height=512,  # !=0/None or picture won't be shown
+                         photo_width=512,
+                         photo_size=512,
+                         is_flexible=False,  # True If you need to set up Shipping Fee
+                         prices=prices,
+                         start_parameter='get_full_plan',
+                         invoice_payload='HAPPY FRIDAYS COUPON')
+    else:
+        text = 'Простите, у вас нету прав доступа для использования этой функции\n' \
+                'Пройдите идентификацию для доступа к этой функции.'
+        bot.send_message(chat_id=message.chat.id, text=text)
 
 
 @bot.pre_checkout_query_handler(func=lambda query: True)
@@ -758,7 +770,7 @@ def checkout(pre_checkout_query):
 
 @bot.message_handler(content_types=['successful_payment'])
 def got_payment(message):
-    user.commit_payment(message.chat.id)
+    postgre.commit_payment(message.chat.id)
     text = "Ура! Спасибо за оплату! Выш план обновлен" \
            "Мы обработаем ваш заказ на `{} {}` как можно быстрее! " \
            "Оставайся на связи.".format(message.successful_payment.total_amount / 100, message.successful_payment.currency)

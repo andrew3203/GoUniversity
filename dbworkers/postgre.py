@@ -3,9 +3,7 @@ import datetime
 from psycopg2 import sql
 
 import parsers
-
-
-DNS = "dbname=Application user=kuand"
+import config
 
 
 # ------- user functions --------
@@ -13,7 +11,7 @@ def update_names(message, val='first_name', table='users', lenn=40):
     text = message.text.strip()
     if len(text) < lenn and text.isalpha():
         try:
-            with psycopg2.connect(DNS) as conn:
+            with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
                 with conn.cursor() as cur:
                     qur = sql.SQL("UPDATE {} SET  {} = %s WHERE chat_id = %s").format(sql.Identifier(table),
                                                                                           sql.Identifier(val))
@@ -39,7 +37,7 @@ def update_birthday(message):
                 and (int(li[0]) > 0) and (int(li[1]) > 0) and (int(li[2]) > 0):
 
             birthday = datetime.date(int(li[2]), int(li[1]), int(li[0]))
-            with psycopg2.connect(DNS) as conn:
+            with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
                 with conn.cursor() as cur:
                     cur.execute("UPDATE users SET  birthday = %s  WHERE chat_id = %s", (birthday,  message.chat.id))
                     conn.commit()
@@ -56,7 +54,7 @@ def update_email(message):
     email = message.text
     user_default_status = 'user:unpaid'
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 cur.execute("UPDATE users SET  email = %s, user_type = %s WHERE chat_id = %s",
                             (email, user_default_status, message.chat.id))
@@ -72,7 +70,7 @@ def update_email(message):
 # check limit of directions in each university
 def update_directions(chat_id, dr_id):
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT directions FROM users WHERE chat_id = %(int)s", {'int': chat_id})
                 directions = cur.fetchone()[0]
@@ -94,7 +92,7 @@ def update_directions(chat_id, dr_id):
 def get_user_data(chat_id):
     data = {}
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT * FROM public.users WHERE chat_id = %(int)s;", {'int': chat_id})
                 fet = cur.fetchone()
@@ -110,7 +108,7 @@ def get_user_data(chat_id):
 
 def is_new(chat_id):
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                 INSERT INTO public.users( date_register, chat_id, user_type, request_per_day, 
@@ -128,7 +126,7 @@ def is_new(chat_id):
 # ------- for universities & departments & directions  --------
 def get_data_from(table, val_where, val):
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 if table == 'universities':
                     cur.execute("SELECT * FROM universities")
@@ -145,7 +143,7 @@ def get_data_from(table, val_where, val):
 
 def get_all_user_directions(chat_id):
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT directions FROM users WHERE chat_id = %(int)s", {'int': chat_id})
                 directions = tuple(cur.fetchone()[0])
@@ -163,7 +161,7 @@ def get_all_user_directions(chat_id):
 
 def get_direction(un_name, dp_name, dr_name, chat_id):
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT directions FROM users WHERE chat_id = %(int)s", {'int': chat_id})
                 directions_id = tuple(cur.fetchone()[0])
@@ -199,9 +197,36 @@ def get_direction(un_name, dp_name, dr_name, chat_id):
         return None
 
 
+def request_count(chat_id):
+    try:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT request_per_day, user_type "
+                            "FROM users WHERE chat_id = %(int)s", {'int': chat_id})
+                ans = cur.fetchone()
+                print(ans)
+                res = int(ans[0]) + 1
+                if ans[1] == 'user:unpaid' and \
+                        int(ans[0]) + 1 >= config.REQUEST_PER_DAY_AMOUNT:
+                    cur.execute("UPDATE users SET  user_type = %s WHERE chat_id = %s", ('user:unpaid:limited', chat_id))
+                    conn.commit()
+                    return False
+                elif ans[1] == 'user:unpaid' and \
+                        res < config.REQUEST_PER_DAY_AMOUNT:
+                    cur.execute("UPDATE users SET request_per_day = %s WHERE chat_id = %s",
+                                (res, chat_id))
+                    conn.commit()
+
+                return True
+
+    except Exception as e:
+        print(e)
+        return True
+
+
 def delete_directions(chat_id, remove):
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT directions FROM users WHERE chat_id = %(int)s", {'int': int(chat_id)})
                 ans = cur.fetchall()[0]
@@ -223,7 +248,7 @@ def delete_directions(chat_id, remove):
 
 def get_departments_by_un_id(un_id):
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT id, name FROM departments WHERE un_id = %(int)s", {'int': un_id})
                 ans = cur.fetchall()
@@ -236,7 +261,7 @@ def get_departments_by_un_id(un_id):
 
 def sign_consent(chat_id, st=True):
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 cur.execute("UPDATE users SET  signed_consent = %s WHERE chat_id = %s", (st, chat_id))
                 return True
@@ -248,7 +273,7 @@ def sign_consent(chat_id, st=True):
 
 def check_sign_consent(chat_id):
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT signed_consent FROM users WHERE chat_id = %(int)s", {'int': chat_id})
                 qur = cur.fetchone()
@@ -261,7 +286,7 @@ def check_sign_consent(chat_id):
 
 def get_user_type(chat_id):
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT user_type FROM users WHERE chat_id = %(int)s", {'int': chat_id})
                 qur = cur.fetchone()
@@ -274,7 +299,7 @@ def get_user_type(chat_id):
 
 def save_user_problem(chat_id, problem):
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 cur.execute("""INSERT INTO public.problems(chat_id, problem, date_add, need_update) 
                 VALUES (%s, %s, %s, %s);""", (chat_id, problem, datetime.datetime.now(), True))
@@ -287,7 +312,7 @@ def save_user_problem(chat_id, problem):
 
 def save_review(chat_id, table='service_reviews', text=None, mark=None):
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 if mark is not None:
                     sql = "SELECT id FROM {} WHERE chat_id = %s and add_date = %s;".format(table)
@@ -316,7 +341,7 @@ def save_review(chat_id, table='service_reviews', text=None, mark=None):
 
 def manage_directions_notify(chat_id, names, todo='add'):
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 if todo == 'add':
                     sql = "INSERT INTO states (chat_id, link, full_name, current_state) " \
@@ -339,7 +364,7 @@ def manage_directions_notify(chat_id, names, todo='add'):
 
 def get_notify_directions(chat_id):
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 sql = "SELECT full_name FROM states WHERE chat_id = %(int)s;"
                 cur.execute(sql, {'int': chat_id})
@@ -357,7 +382,7 @@ def get_notify_directions(chat_id):
 def get_available_notify_directions(chat_id):
     names = ["{}. {}. {}".format(num[0], num[1], num[2]) for num in get_all_user_directions(chat_id)]
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 sql = "SELECT full_name FROM states WHERE chat_id = %(int)s;"
                 cur.execute(sql, {'int': chat_id})
@@ -376,7 +401,7 @@ def get_available_notify_directions(chat_id):
 
 def update_user_type(chat_id):
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 cur.execute("UPDATE users SET user_type = %s WHERE chat_id = %s", ('user:active', chat_id))
                 conn.commit()
@@ -390,7 +415,7 @@ def update_user_type(chat_id):
 
 def commit_payment(chat_id, price=185):
     try:
-        with psycopg2.connect(DNS) as conn:
+        with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 update_user_type(chat_id)
                 sql = "INSERT INTO payments (price, chat_id, pay_date, license_period) " \
