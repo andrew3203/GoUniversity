@@ -365,6 +365,8 @@ def send_directions_edit_list(chat_id, text_btn, text_msg, message_id=None,
                               notify='', clb_btn='delete_', btn1='Отмена', ckb1='not_change_'):
     if clb_btn == 'remove_notify_':
         directions = user.get_notify_directions(chat_id)
+    elif clb_btn == 'add_notify_':
+        directions = user.get_available_notify_directions(chat_id)
     else:
         directions = user.get_all_user_directions(chat_id)
     markup = InlineKeyboardMarkup()

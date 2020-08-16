@@ -345,13 +345,12 @@ def manage_directions_notify(chat_id, names, todo='add'):
                         cur.execute(sql, (chat_id, link, name, current_state))
                 else:
                     sql = "DELETE FROM states WHERE chat_id = %s and full_name in %s"
-                    cur.execute(sql, (chat_id, names))
+                    cur.execute(sql, (chat_id, tuple(names)))
                 conn.commit()
                 return True
 
     except Exception as e:
         print(e)
-        print('there')
         return False
 
 
@@ -361,7 +360,30 @@ def get_notify_directions(chat_id):
             with conn.cursor() as cur:
                 sql = "SELECT full_name FROM states WHERE chat_id = %(int)s;"
                 cur.execute(sql, {'int': chat_id})
-                ans = [tuple(num[0].split('. ')) + (1,) for num in cur.fetchall()]
+                resp = cur.fetchall()
+                ans = []
+                for i in range(len(resp)):
+                    ans.append(tuple(resp[i][0].split('. ')) + (i,))
+                return ans
+
+    except Exception as e:
+        print(e)
+        return None
+
+
+def get_available_notify_directions(chat_id):
+    names = ["{}. {}. {}".format(num[0], num[1], num[2]) for num in get_all_user_directions(chat_id)]
+    try:
+        with psycopg2.connect(DNS) as conn:
+            with conn.cursor() as cur:
+                sql = "SELECT full_name FROM states WHERE chat_id = %(int)s;"
+                cur.execute(sql, {'int': chat_id})
+                resp = [num[0] for num in cur.fetchall()]
+                ans = []
+                for i in range(len(names)):
+                    if names[i] not in resp:
+                        ans.append(tuple(names[i].split('. ')) + (i,))
+
                 return ans
 
     except Exception as e:
