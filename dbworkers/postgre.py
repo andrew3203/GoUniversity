@@ -94,7 +94,7 @@ def get_user_data(chat_id):
     try:
         with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT * FROM public.users WHERE chat_id = %(int)s;", {'int': chat_id})
+                cur.execute("SELECT * FROM users WHERE chat_id = %(int)s;", {'int': chat_id})
                 fet = cur.fetchone()
                 data = {
                     'first_name': fet[0],
@@ -111,7 +111,7 @@ def is_new(chat_id):
         with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                INSERT INTO public.users( date_register, chat_id, user_type, request_per_day, 
+                INSERT INTO users( date_register, chat_id, user_type, request_per_day, 
                 signed_consent) VALUES (%s, %s, %s, %s, %s);""",
                             (datetime.date.today(), chat_id, 'guest', 0, False))
 
@@ -301,7 +301,7 @@ def save_user_problem(chat_id, problem):
     try:
         with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
-                cur.execute("""INSERT INTO public.problems(chat_id, problem, date_add, need_update) 
+                cur.execute("""INSERT INTO problems(chat_id, problem, date_add, need_update) 
                 VALUES (%s, %s, %s, %s);""", (chat_id, problem, datetime.datetime.now(), True))
                 return True
 
