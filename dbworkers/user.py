@@ -54,7 +54,7 @@ def update_birthday(message):
 
 def update_email(message):
     email = message.text
-    user_default_status = 'user:active'
+    user_default_status = 'user:unpaid'
     try:
         with psycopg2.connect(DNS) as conn:
             with conn.cursor() as cur:
@@ -100,23 +100,6 @@ def get_user_data(chat_id):
                 fet = cur.fetchone()
                 data = {
                     'first_name': fet[0],
-                    'last_name': fet[1],
-                    'middle_name': fet[2],
-                    'birthday': fet[3],
-                    'date_register': fet[4],
-                    'email': fet[5],
-                    'phone': fet[6],
-                    'user_type': fet[7],
-                    'request_per_day': fet[8],
-                    'coast': fet[9],
-                    'ege_score': fet[10],
-                    'waiting_for_updates': fet[11],
-                    'received_code': fet[12],
-                    'shared_code': fet[13],
-                    'directions': fet[14],
-                    'id': fet[15],
-                    'chat_id': fet[16],
-                    'signed_consent': fet[17],
                 }
                 return data
     except Exception as e:
@@ -131,8 +114,8 @@ def is_new(chat_id):
             with conn.cursor() as cur:
                 cur.execute("""
                 INSERT INTO public.users( date_register, chat_id, user_type, request_per_day, 
-                signed_consent) VALUES (%s, %s, %s, %s, %s, %s);""",
-                            (datetime.datetime.now(), chat_id, 'guest', 0, False))
+                signed_consent) VALUES (%s, %s, %s, %s, %s);""",
+                            (datetime.date.today(), chat_id, 'guest', 0, False))
 
                 conn.commit()
             return True
@@ -389,3 +372,34 @@ def get_available_notify_directions(chat_id):
     except Exception as e:
         print(e)
         return None
+
+
+def update_user_type(chat_id):
+    try:
+        with psycopg2.connect(DNS) as conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE users SET user_type = %s WHERE chat_id = %s", ('user:active', chat_id))
+                conn.commit()
+
+                return True
+
+    except Exception as e:
+        print(e)
+        return False
+
+
+def commit_payment(chat_id, price=185):
+    try:
+        with psycopg2.connect(DNS) as conn:
+            with conn.cursor() as cur:
+                update_user_type(chat_id)
+                sql = "INSERT INTO payments (price, chat_id, pay_date, license_period) " \
+                      "VALUES (%s, %s, %s, %s);"
+                delta = datetime.date(2000, 6, 1) - datetime.date(2000, 1, 1)
+                cur.execute(sql, (price, chat_id, datetime.date.today(), datetime.date.today() + delta))
+                conn.commit()
+
+                return True
+
+    except Exception as e:
+        print(e)

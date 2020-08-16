@@ -1,10 +1,15 @@
 import telebot
 from telebot import types
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, LabeledPrice, ShippingOption
 
 import re
 from dbworkers import user, dbworker
 import config
+
+
+provider_token = '381764678:TEST:18656'
+
+prices = [LabeledPrice(label='Полный доступ к сервису', amount=17500), LabeledPrice('Налоговые сборы', 1000)]
 
 bot = telebot.TeleBot(config.TOKEN)
 
@@ -724,6 +729,40 @@ def add_notify_directions(call):
     action = 'add'
     manage_directions_notify(call, text_msg, action)
 
+
+# ------- menage subscribe --------
+@bot.message_handler(commands=['buy'])
+def command_pay(message):
+    bot.send_invoice(message.chat.id, title='Полный доступ к сервису',
+                     description='Покупая полный доступ к сервису вы получаете возможность неограниченно проверять свою'
+                                 ' позицию по направлениям и получать уведомления о всех изменениях '
+                                 'в рейтинговых списках. Доступ будет действовть до конца этого года.',
+                     provider_token=provider_token,
+                     currency='rub',
+                     photo_url='http://erkelzaar.tsudao.com/models/perrotta/TIME_MACHINE.jpg',
+                     photo_height=512,  # !=0/None or picture won't be shown
+                     photo_width=512,
+                     photo_size=512,
+                     is_flexible=False,  # True If you need to set up Shipping Fee
+                     prices=prices,
+                     start_parameter='get_full_plan',
+                     invoice_payload='HAPPY FRIDAYS COUPON')
+
+
+@bot.pre_checkout_query_handler(func=lambda query: True)
+def checkout(pre_checkout_query):
+    text = 'Инопланетяне пытались украсть CVV вашей карты, но мы успешно защитили ваши учетные данные,' \
+           'попробуйте заплатить еще раз через несколько минут, нам нужен небольшой отдых.'
+    bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True, error_message=text)
+
+
+@bot.message_handler(content_types=['successful_payment'])
+def got_payment(message):
+    user.commit_payment(message.chat.id)
+    text = "Ура! Спасибо за оплату! Выш план обновлен" \
+           "Мы обработаем ваш заказ на `{} {}` как можно быстрее! " \
+           "Оставайся на связи.".format(message.successful_payment.total_amount / 100, message.successful_payment.currency)
+    bot.send_message(message.chat.id, text, parse_mode='Markdown')
 
 
 bot.infinity_polling()

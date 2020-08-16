@@ -44,7 +44,7 @@ def command_pay(message):
                                  ' Shake hands with Hammurabi and take a stroll in the Hanging Gardens?'
                                  ' Order our Working Time Machine today!',
                      provider_token=provider_token,
-                     currency='usd',
+                     currency='rub',
                      photo_url='http://erkelzaar.tsudao.com/models/perrotta/TIME_MACHINE.jpg',
                      photo_height=512,  # !=0/None or picture won't be shown
                      photo_width=512,
