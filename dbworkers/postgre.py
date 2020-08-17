@@ -150,7 +150,7 @@ def get_all_user_directions(chat_id):
             with conn.cursor() as cur:
                 cur.execute("SELECT directions FROM users WHERE chat_id = %(int)s", {'int': chat_id})
                 directions = tuple(cur.fetchone()[0])
-                if directions is None:
+                if directions is None or len(directions) == 0:
                     return []
                 sql = "SELECT universities.name, departments.name, directions.name, directions.id " \
                       "FROM universities, departments, directions  " \
@@ -170,7 +170,8 @@ def get_direction(un_name, dp_name, dr_name, chat_id):
             with conn.cursor() as cur:
                 cur.execute("SELECT directions FROM users WHERE chat_id = %(int)s", {'int': chat_id})
                 directions_id = tuple(cur.fetchone()[0])
-
+                if directions_id is None or len(directions_id) == 0:
+                    return None
                 cur.execute("SELECT dp_id FROM directions WHERE id in %s and name = %s", (directions_id, dr_name))
                 dp_ids = tuple([num[0] for num in cur.fetchall()])
 
