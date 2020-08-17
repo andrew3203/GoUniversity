@@ -230,11 +230,12 @@ def send_university_list(chat_id):
 # ------- add direction --------
 @bot.message_handler(commands=['showuniversities'])
 def add_university(message):
-    ans = config.finished_registration(message.chat.id)
-    if ans is not None:
-        bot.send_message(message.chat.id, text=ans)
-    else:
+    if postgre.get_user_type(message.chat.id) in config.ACCESS_LEVEL_4:
         send_university_list(message.chat.id)
+    else:
+        ans = config.finished_registration(message.chat.id)
+        bot.send_message(message.chat.id, text=ans)
+
 
 
 @bot.callback_query_handler(func=lambda call: 'back_from_departments' == call.data.split('#')[0])  # !!!
@@ -324,18 +325,15 @@ def show_direction(call):
 def add_university(message):
     if postgre.get_user_type(message.chat.id) in config.ACCESS_LEVEL_4:
 
-        ans = config.finished_registration(message.chat.id)
-        if ans is not None:
-            bot.send_message(message.chat.id, text=ans)
+        markup = get_user_directions_keyboard(message.chat.id)
+        text = '*Выбирите из выпавшего списка нужное направление.*\n(откройте дополнительную клавиатуру)'
+        if markup is not None:
+            bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
         else:
-            markup = get_user_directions_keyboard(message.chat.id)
-            text = '*Выбирите из выпавшего списка нужное направление.*\n(откройте дополнительную клавиатуру)'
-            if markup is not None:
-                bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
-            else:
-                text = 'У вас нету ни одного доступного направления. Нажмите \n/showuniversities,' \
-                       'чтобы добавить их'
-                bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
+            text = 'У вас нету ни одного доступного направления. Нажмите \n/showuniversities, ' \
+                   'чтобы добавить их'
+            bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
+
 
     else:
         text = 'Для того, чтобы посмотреть направления, вам необходимо автаризироваться.\n' \
@@ -436,27 +434,17 @@ def send_unmarked_direction_lis(call, text_msg):
 
 @bot.message_handler(func=lambda message: config.direction_filter(message.text))
 def get_direction_info(message):
-    if postgre.get_user_type(message.chat.id) in config.ACCESS_LEVEL_3:
-        ans = config.finished_registration(message.chat.id)
-        if postgre.is_new(message.chat.id) or ans is not None:
-            bot.send_message(message.chat.id, text=ans)
+    if postgre.get_user_type(message.chat.id) in config.ACCESS_LEVEL_3 and postgre.request_count(message.chat.id):
+        a, b, c = message.text.split('. ')
+        info = get_direction_data(a, b, c, message.chat.id)
+        if info is not None:
+            bot.send_message(chat_id=message.chat.id, text=info[0], parse_mode='Markdown')
+            markup = InlineKeyboardMarkup()
+            markup.add(InlineKeyboardButton('Откыть сайт', url=info[2], callback_data='open_site'))
+            bot.send_message(chat_id=message.chat.id, text=info[1], parse_mode='Markdown', reply_markup=markup)
         else:
-            if postgre.request_count(message.chat.id):
-                a, b, c = message.text.split('. ')
-                info = get_direction_data(a, b, c, message.chat.id)
-                if info is not None:
-                    bot.send_message(chat_id=message.chat.id, text=info[0], parse_mode='Markdown')
-                    markup = InlineKeyboardMarkup()
-                    markup.add(InlineKeyboardButton('Откыть сайт', url=info[2], callback_data='open_site'))
-                    bot.send_message(chat_id=message.chat.id, text=info[1], parse_mode='Markdown', reply_markup=markup)
-                else:
-                    text = 'Вероятно что-то пошло не так, попробуйте повторить запрос'
-                    bot.send_message(message.chat.id, text=text)
-            else:
-                text = 'Увы, вы привысили колличесво бесплатных запросов на сегодня (15)\n' \
-                       'Чтобы неограниченно использовать возможности сервиса, перейдите на полную версию /buy, ' \
-                       'либо дождитесь следующего дня'
-                bot.send_message(message.chat.id, text=text)
+            text = 'Вероятно что-то пошло не так, попробуйте повторить запрос'
+            bot.send_message(message.chat.id, text=text)
 
     else:
         text = 'Увы, вы привысили колличесво бесплатных запросов на сегодня (15)\n' \
@@ -469,14 +457,9 @@ def get_direction_info(message):
 @bot.message_handler(commands=['editdirections'])
 def edit_directions(message):
     if postgre.get_user_type(message.chat.id) in config.ACCESS_LEVEL_4:
-
-        ans = config.finished_registration(message.chat.id)
-        if postgre.is_new(message.chat.id) or ans is not None:
-            bot.send_message(message.chat.id, text=ans)
-        else:
-            text_btn = 'Удалить🗑'
-            text_msg = "Выбирете те направления из списка, которые хотите удалить\nЗатем нажмите *Удалить*"
-            send_directions_edit_list(message.chat.id, text_btn, text_msg)
+        text_btn = 'Удалить🗑'
+        text_msg = "Выбирете те направления из списка, которые хотите удалить\nЗатем нажмите *Удалить*"
+        send_directions_edit_list(message.chat.id, text_btn, text_msg)
     else:
         text = 'Для того, чтобы редактировать направления, вам необходимо автаризироваться.\n' \
                'Нажмите /register, получить доступ к этой возможности'
