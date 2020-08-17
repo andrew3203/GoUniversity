@@ -3,7 +3,7 @@ import requests as req
 
 
 def mirea_parser(fio, link):
-    name1, last_name1, middle_name1 = fio.split('. ')
+    name1, last_name1, middle_name1, ege = fio.split('. ')
     resp = req.get(link)
     soup = BeautifulSoup(resp.text, 'html.parser')
     for obj in soup.find_all('tr'):
