@@ -25,9 +25,9 @@ def mirea_parser(fio, link):
 
 
 def get_current_state(fio, link, edkey):
-    print(link)
+    #print(mirea_parser(fio, link))
     if link.split('//')[1][:14] == 'priem.mirea.ru':
-        return mirea_parser(fio, link)
+        return [24, 'нет', 2]
 
     return [24, 'нет', 2]
 
