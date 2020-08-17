@@ -328,9 +328,15 @@ def add_university(message):
         if ans is not None:
             bot.send_message(message.chat.id, text=ans)
         else:
-            text = '*Выбирите из выпавшего списка нужное направление.*\n (откройте дополнительную клавиатуру)'
             markup = get_user_directions_keyboard(message.chat.id)
-            bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
+            text = '*Выбирите из выпавшего списка нужное направление.*\n(откройте дополнительную клавиатуру)'
+            if markup is not None:
+                bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
+            else:
+                text = 'У вас нету ни одного доступного направления. Нажмите \n/showuniversities,' \
+                       'чтобы добавить их'
+                bot.send_message(chat_id=message.chat.id, text=text, reply_markup=markup, parse_mode='Markdown')
+
     else:
         text = 'Для того, чтобы посмотреть направления, вам необходимо автаризироваться.\n' \
                'Нажмите /register, чтобы получить доступ к этой возможности'
