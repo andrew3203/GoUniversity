@@ -121,8 +121,7 @@ def review_filter(chat_id):
 def direction_filter(data):
     try:
         arr = data.split('. ')
-        if len(arr) == 3 and \
-                arr[0].isalpha() and arr[1].isalpha() and arr[2].isalpha():
+        if len(arr) == 3:
             return True
         else:
             return False

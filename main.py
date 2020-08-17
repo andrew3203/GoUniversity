@@ -434,22 +434,22 @@ def send_unmarked_direction_lis(call, text_msg):
 
 @bot.message_handler(func=lambda message: config.direction_filter(message.text))
 def get_direction_info(message):
-    if postgre.get_user_type(message.chat.id) in config.ACCESS_LEVEL_3 and postgre.request_count(message.chat.id):
+    if postgre.get_user_type(message.chat.id) in config.ACCESS_LEVEL_3:
         a, b, c = message.text.split('. ')
         info = get_direction_data(a, b, c, message.chat.id)
-        if info is not None:
+        if info is not None and postgre.request_count(message.chat.id):
             bot.send_message(chat_id=message.chat.id, text=info[0], parse_mode='Markdown')
             markup = InlineKeyboardMarkup()
             markup.add(InlineKeyboardButton('Откыть сайт', url=info[2], callback_data='open_site'))
             bot.send_message(chat_id=message.chat.id, text=info[1], parse_mode='Markdown', reply_markup=markup)
         else:
-            text = 'Вероятно что-то пошло не так, попробуйте повторить запрос'
+            text = 'Увы, вы привысили колличесво бесплатных запросов на сегодня (15)\n' \
+                   'Чтобы неограниченно использовать возможности сервиса, перейдите на полную версию /buy, ' \
+                   'либо дождитесь следующего дня'
             bot.send_message(message.chat.id, text=text)
 
     else:
-        text = 'Увы, вы привысили колличесво бесплатных запросов на сегодня (15)\n' \
-               'Чтобы неограниченно использовать возможности сервиса, перейдите на полную версию /buy, ' \
-               'либо дождитесь следующего дня'
+        text = 'Вероятно что-то пошло не так, попробуйте повторить запрос'
 
         bot.send_message(chat_id=message.chat.id, text=text)
 
