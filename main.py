@@ -1,10 +1,10 @@
 import telebot
 from telebot import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, LabeledPrice, ShippingOption
-
 import re
 from dbworkers import postgre, dbworker
 import config
+import parsers
 
 prices = [LabeledPrice(label='Полный доступ к сервису', amount=17500), LabeledPrice('Налоговые сборы', 1000)]
 
@@ -205,6 +205,8 @@ def get_user_directions_keyboard(chat_id):
 
 def get_direction_data(un_name, dp_name, dr_name, chat_id):
     ans = postgre.get_direction(un_name, dp_name, dr_name, chat_id)
+    name = postgre.get_user_data(chat_id)
+    info = parsers.get_current_state(name, ans[-1], "{}. {}. {}".format(un_name, dp_name, dr_name))
     if ans is not None:
 
         text = "*Направление {}, {} {}*\n" \
@@ -214,7 +216,7 @@ def get_direction_data(un_name, dp_name, dr_name, chat_id):
                "С оригиналом будет: *{}*\n"
         text_1 = "Колличесво поступающий в списке *{}*\n" \
                  "Колличество оригиналов в списке: *{}*"
-        return [text.format(dr_name, dp_name, un_name, 10, 'нет', 2), text_1.format(ans[0], ans[1]), ans[2]]
+        return [text.format(dr_name, dp_name, un_name, info[0], info[1], info[2]), text_1.format(ans[0], ans[1]), ans[2]]
     else:
         return None
 

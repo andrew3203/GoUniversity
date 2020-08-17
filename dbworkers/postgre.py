@@ -98,6 +98,9 @@ def get_user_data(chat_id):
                 fet = cur.fetchone()
                 data = {
                     'first_name': fet[2],
+                    'last_name': fet[3],
+                    'middle_name': fet[4],
+                    'ege_score': fet[11]
                 }
                 return data
     except Exception as e:
@@ -340,6 +343,7 @@ def save_review(chat_id, table='service_reviews', text=None, mark=None):
 
 
 def manage_directions_notify(chat_id, names, todo='add'):
+    fio = get_user_data(chat_id)
     try:
         with psycopg2.connect(config.DATABASE_URL, sslmode='require') as conn:
             with conn.cursor() as cur:
@@ -349,8 +353,8 @@ def manage_directions_notify(chat_id, names, todo='add'):
                     for name in names:
                         un_name, dp_name, dr_name = name.split('. ')
                         link = get_direction(un_name, dp_name, dr_name, chat_id)[-1]
-                        current_state = parsers.get_current_state(name, link)
-                        cur.execute(sql, (chat_id, link, name, current_state))
+                        current_state = parsers.get_current_state(fio, link, name)   # ------- need to think current_state[0]?
+                        cur.execute(sql, (chat_id, link, name, current_state[0]))
                 else:
                     sql = "DELETE FROM states WHERE chat_id = %s and full_name in %s"
                     cur.execute(sql, (chat_id, tuple(names)))
