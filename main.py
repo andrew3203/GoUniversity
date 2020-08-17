@@ -205,8 +205,10 @@ def get_user_directions_keyboard(chat_id):
 
 def get_direction_data(un_name, dp_name, dr_name, chat_id):
     ans = postgre.get_direction(un_name, dp_name, dr_name, chat_id)
+    print(ans)
     if ans is not None:
         name = postgre.get_user_data(chat_id)
+        print(name)
         info = parsers.get_current_state(name, ans[-1], "{}. {}. {}".format(un_name, dp_name, dr_name))
 
         text = "*Направление {}, {} {}*\n" \
@@ -437,6 +439,7 @@ def get_direction_info(message):
     if postgre.get_user_type(message.chat.id) in config.ACCESS_LEVEL_3 and postgre.request_count(message.chat.id):
         a, b, c = message.text.split('. ')
         info = get_direction_data(a, b, c, message.chat.id)
+        print(info)
         if info is not None:
             bot.send_message(chat_id=message.chat.id, text=info[0], parse_mode='Markdown')
             markup = InlineKeyboardMarkup()

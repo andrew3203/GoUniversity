@@ -17,6 +17,7 @@ def mirea_parser(fio, link):
                     accepted = obj.find("td", {"class": "accepted"})
                     pos = obj.find("td", {"class": "num"})
                     score = obj.find("td", {"class": "sum"})
+                    print(pos)
                     return [pos.text, accepted.text, score.text]
     except Exception as e:
         print(e)
@@ -24,6 +25,7 @@ def mirea_parser(fio, link):
 
 
 def get_current_state(fio, link, edkey):
+    print(link)
     if link.split('//')[1][:14] == 'priem.mirea.ru':
         return mirea_parser(fio, link)
 
