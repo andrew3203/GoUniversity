@@ -205,9 +205,9 @@ def get_user_directions_keyboard(chat_id):
 
 def get_direction_data(un_name, dp_name, dr_name, chat_id):
     ans = postgre.get_direction(un_name, dp_name, dr_name, chat_id)
-    name = postgre.get_user_data(chat_id)
-    info = parsers.get_current_state(name, ans[-1], "{}. {}. {}".format(un_name, dp_name, dr_name))
     if ans is not None:
+        name = postgre.get_user_data(chat_id)
+        info = parsers.get_current_state(name, ans[-1], "{}. {}. {}".format(un_name, dp_name, dr_name))
 
         text = "*Направление {}, {} {}*\n" \
                "----------------------\n" \
@@ -647,7 +647,6 @@ def manage_directions_notify(call, text_msg, action):
     for obj in call.message.json['reply_markup']['inline_keyboard']:
         if 'mark' == obj[0]['callback_data'][:4]:
             name = obj[0]['text'][2:]
-            print(name)
             names.append(name)
             count += 1
 

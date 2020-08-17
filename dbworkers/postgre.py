@@ -150,6 +150,8 @@ def get_all_user_directions(chat_id):
             with conn.cursor() as cur:
                 cur.execute("SELECT directions FROM users WHERE chat_id = %(int)s", {'int': chat_id})
                 directions = tuple(cur.fetchone()[0])
+                if directions is None:
+                    return []
                 sql = "SELECT universities.name, departments.name, directions.name, directions.id " \
                       "FROM universities, departments, directions  " \
                       "WHERE directions.dp_id = departments.id and departments.un_id = universities.id " \
@@ -207,7 +209,6 @@ def request_count(chat_id):
                 cur.execute("SELECT request_per_day, user_type "
                             "FROM users WHERE chat_id = %(int)s", {'int': chat_id})
                 ans = cur.fetchone()
-                print(ans)
                 res = int(ans[0]) + 1
                 if ans[1] == 'user:unpaid' and \
                         int(ans[0]) + 1 >= config.REQUEST_PER_DAY_AMOUNT:
